@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="distributed-floodlight" default="distFloodlight">
+	<target name="run" depends="distFloodlight">
+		<parallel>
+			<sequential>
+				<ant antfile="/Users/fabiim/dev/eclipse-workspaces/tese/bft-smart/build.xml" target="MapSmart" dir="/Users/fabiim/dev/eclipse-workspaces/tese/bft-smart/"/>
+			</sequential>
+			<sequential>
+			    <sleep seconds="5"/>
+				 <ant antfile="/Users/fabiim/dev/open/floodlight-v0.9/build.xml" target="run"/>
+			</sequential>
+		</parallel>
+		<ant antfile="/Users/fabiim/dev/open/floodlight-v0.9/build.xml" target="run"/>
+	</target>
+	<target name="distFloodlight" depends= "floodlight, bft-smart">
+	</target>
+	<target name="floodlight">
+		 <ant antfile="/Users/fabiim/dev/open/floodlight-v0.9/build.xml" target="compile"/>
+	</target>
+	<target name ="bft-smart">
+		<ant antfile="/Users/fabiim/dev/eclipse-workspaces/tese/bft-smart/build.xml" target="build" dir="/Users/fabiim/dev/eclipse-workspaces/tese/bft-smart/"/>
+	</target>
+	<target name ="clean">
+		<ant antfile="/Users/fabiim/dev/eclipse-workspaces/tese/bft-smart/build.xml" target="clean" dir="/Users/fabiim/dev/eclipse-workspaces/tese/bft-smart/"/>
+	    <ant antfile="/Users/fabiim/dev/open/floodlight-v0.9/build.xml" target="clean"/>
+	</target>
+</project>
