@@ -1468,8 +1468,10 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         if (!primaryIndex.updateIndex(device, deviceKey)) {
             return false;
         }
-        
+
+     /* OPT no need to get the default classState since primary index is null. 
         IEntityClass entityClass = device.getEntityClass();
+        
         ClassState classState = getClassState(entityClass);
 
         if (classState.classIndex != null) {
@@ -1478,7 +1480,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 return false;
             }
             updateClassState(classState);
-        }
+        }*/
     return true;
     }
 
