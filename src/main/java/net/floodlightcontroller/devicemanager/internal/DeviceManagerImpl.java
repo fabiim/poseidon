@@ -104,7 +104,6 @@ public class DeviceManagerImpl implements
 IDeviceService, IOFMessageListener, ITopologyListener,
 IFloodlightModule, IEntityClassListener,
 IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
-    
 	/**
 	 * 
 	 */
@@ -1439,6 +1438,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
         classState = new ClassState(clazz, this.entityClassifier, perClassIndices.getAll().values());
         
+        //TODO - remover perClassIndices
         ClassState r = classStateMap.putIfAbsent(clazz.getName(), classState);
         if (r != null) {
             // concurrent add

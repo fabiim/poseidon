@@ -31,22 +31,23 @@ public class ReportGenerator {
 	private static String title;
 	private static String description; 
 
-
-
 	public static void main(String args	[]) throws IOException{
+		
 		//TODO - check is folder . 
 		switch(args.length){
 			case 2:
 				//singularCase(args[1]);
-				readLogAndCreateReport("./workloads/report/100.known/usedLog.0.1000","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
+				//readLogAndCreateReport("./workloads/report/100.known/usedLog.0.1000","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
 				//readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
 				//readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/100.known.narp/", "100 No arp - Ping between known hosts", "Hosts have static arp tables", 120, 140);
-				//readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/100.new.narp/", "100 No arp- Ping from a unknown  host 2 a known host", "Hosts have static arp tables", 140, 170);
+				readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "", 220, 265);
+				//readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/500.base/", "500 Hosts", "", 425, 450);
 				break; 
 			default: 
 				System.out.println("Unknown command... See command line arguments"); 
 		}
 	}
+	
 	public static int BEGIN; 
 	public static int END; 
 	
@@ -63,7 +64,7 @@ public class ReportGenerator {
 	
 	
 	private static void generateElementsFromInputFile() throws IOException{
-		//createReadWriteThroughput();
+		createReadWriteThroughput();
 		System.out.println("Created Read/Write Throughput"); 
 		//createSize(); 
 		System.out.println("Created Sizes"); 
@@ -136,7 +137,6 @@ public class ReportGenerator {
 	}	
 	
 	private static void createSize() throws IOException{
-		
 		JFreeChart chart = GenerateGraphics.createSize(new WorkLoadResults(fileInput), false);
 		String out = outputFolder + "read.write.size.png"; 		
 		GenerateGraphics.saveChart( out, chart, 750, 500);

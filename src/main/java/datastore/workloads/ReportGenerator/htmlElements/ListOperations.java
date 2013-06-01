@@ -48,6 +48,7 @@ public class ListOperations extends SourceElement{
 	public static int v =0; 
 	
 	private void render_element(RequestLogEntry en) {
+		System.out.println("{ FlowSimulation." + (en.getType().isRead() ?  "READ_OP" : "WRITE_OP") +  "," + en.getSizeOfRequest() + "," + en.getSizeOfResponse() + "},"); 
 		out.append("<li>"); 
 		out.append( "(" + (en.getTimeStarted() - rs.getTimeZero())  + " - " + en.tid  + ") - " + (en.getType().isRead() ? "(R) - " : "(W) - ") +  
 					en.getType().name()  +  ", table = " + en.getTable() +    
