@@ -90,6 +90,8 @@ import org.openflow.protocol.OFType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Maps;
+
 import datastore.Datastore;
 import datastore.Table;
 import datastore.workloads.ActivityEvent;
@@ -168,7 +170,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
     /**
      * This is the list of indices we want on a per-class basis
      */
-    protected Table<EnumSet<DeviceField>,EnumSet<DeviceField>> perClassIndices;
+    protected Map<EnumSet<DeviceField>,EnumSet<DeviceField>> perClassIndices;
 
     /**
      * The entity classifier currently in use
@@ -684,7 +686,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
              ;
         apComparator = new AttachmentPointComparator();
 
-        perClassIndices = ds.getTable("PER_CLASS_INDICES", null, null); 
+        perClassIndices = Maps.newConcurrentMap(); 
         addIndex(true, EnumSet.of(DeviceField.IPV4));
         
         this.deviceListeners = new ListenerDispatcher<String, IDeviceListener>();
@@ -1437,7 +1439,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
         if (classState != null) return classState;
 
-        classState = new ClassState(clazz, this.entityClassifier, perClassIndices.getAll().values());
+        classState = new ClassState(clazz, this.entityClassifier, perClassIndices.values());
         
         //TODO - remover perClassIndices
         ClassState r = classStateMap.putIfAbsent(clazz.getName(), classState);
