@@ -57,10 +57,10 @@ public class DeviceMultiIndex extends DeviceIndex {
         Table<String,String> table = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, datastore.util.KeySerializationFunctions.STRING_DESERIALIZE	,datastore.util.KeySerializationFunctions.STRING_SERIALIZE); 
         //TODO - initialization of counters
         String tableId;
-        for (tableId =  table.get("DEVICE_MULTI_INDEX_COUNTER") ; table.replace("DEVICE_MULTI_INDEX_COUNTER", tableId,	tableId+1); tableId = (Long.decode(tableId)+ 1) + ""){
+        /*for (tableId =  table.get("DEVICE_MULTI_INDEX_COUNTER") ; table.replace("DEVICE_MULTI_INDEX_COUNTER", tableId,	tableId+1); tableId = (Long.decode(tableId)+ 1) + ""){
         	continue; 
-        }
-        index = ds.getTable("DEVICE_MULTI_INDEX_" + tableId, KeySerializationFunctions.INDEXED_ENTITY_DESERIALIZE		, KeySerializationFunctions.INDEXED_ENTITY_SERIALIZE);
+        }*/
+        index = ds.getTable("DEVICE_MULTI_INDEX_" , KeySerializationFunctions.INDEXED_ENTITY_DESERIALIZE		, KeySerializationFunctions.INDEXED_ENTITY_SERIALIZE);
     }
 
     // ***********

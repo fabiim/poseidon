@@ -43,6 +43,7 @@ public class Datastore{
 		
 		Table<String,String>  t2 = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null, null); 
 		t2.put("DEVICE_UNIQUE_INDEX_COUNTER", "0");
+		t2.put("DEVICE_MULTI_INDEX_COUNTER", "0"); 
 		//TODO - several copies of the datastore locally (é preciso aproveitar as threads) . 
 		//TODO - cada uma das aplicações inicializa as cenas .
 		

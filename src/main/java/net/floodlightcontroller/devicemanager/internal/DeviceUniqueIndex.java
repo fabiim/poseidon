@@ -20,9 +20,12 @@ package net.floodlightcontroller.devicemanager.internal;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 
 import net.floodlightcontroller.devicemanager.IDeviceService.DeviceField;
+
+import com.google.common.collect.Maps;
+
 import datastore.Datastore;
 import datastore.Table;
 
@@ -76,12 +79,18 @@ public class DeviceUniqueIndex extends DeviceIndex {
         return index.getAll().values().iterator();
     }
 
+    private Map<IndexedEntity, Boolean> semiBloom = Maps.newHashMap(); 
     @Override
     public boolean updateIndex(Device device, Long deviceKey) {
+    	
+    	
+    	//TODO - bloom filter here.
+    	//TODO - effects of non consistency entities? Quite sure no one ever deletes entities except in deleteDevice and cleanUp 
+    	
         for (Entity e : device.entities) {
             IndexedEntity ie = new IndexedEntity(keyFields, e);
-            if (!ie.hasNonNullKeys()) continue;
-
+            if (!ie.hasNonNullKeys() || semiBloom.containsKey(ie)) continue;
+            semiBloom.put(ie, true);
             Long ret = index.putIfAbsent(ie, deviceKey);
             if (ret != null && !ret.equals(deviceKey)) {
                 // If the return value is non-null, then fail the insert 
@@ -90,6 +99,7 @@ public class DeviceUniqueIndex extends DeviceIndex {
                 return false;
             }
         }
+        semiBloom.clear(); 
         return true;
     }
     
