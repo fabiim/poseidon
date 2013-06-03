@@ -991,8 +991,12 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      */
     protected Device findDeviceByEntity(Entity entity) {
         // Look up the fully-qualified entity to see if it already
-        // exists in the primary entity index. 
-        Long deviceKey = primaryIndex.findByEntity(entity);
+        // exists in the primary entity index.
+    	Device dev = primaryIndex.findByEntity(entity);
+    	if (dev != null) return dev; 
+        
+    	Long deviceKey = null; 
+        
         IEntityClass entityClass = null;
 
         if (deviceKey == null) {
@@ -1031,8 +1035,10 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         
         // Look  up the fully-qualified entity to see if it 
         // exists in the primary entity index
-        Long deviceKey = primaryIndex.findByEntity(dstEntity);
-         
+        Device dev = primaryIndex.findByEntity(dstEntity);
+        if (dev != null) return dev; 
+        Long deviceKey = null; 
+        
         if (deviceKey == null) {
             // This could happen because:
             // 1) no destination known, or a broadcast destination
@@ -1078,7 +1084,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         ArrayList<Long> deleteQueue = null;
         LinkedList<DeviceUpdate> deviceUpdates = null;
         Device device = null;
-
+        
         // we may need to restart the learning process if we detect
         // concurrent modification.  Note that we ensure that at least
         // one thread should always succeed so we don't get into infinite
@@ -1088,10 +1094,14 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
             // Look up the fully-qualified entity to see if it already
             // exists in the primary entity index.
-            Long deviceKey = primaryIndex.findByEntity(entity);
+
+            Long deviceKey = null; 
+            device = primaryIndex.findByEntity(entity);
+
+            System.out.println(device);
             IEntityClass entityClass = null;
 
-            if (deviceKey == null) {
+            if (device == null) {
                 // If the entity does not exist in the primary entity index,
                 // use the entity classifier for find the classes for the
                 // entity. Look up the entity in the returned class'
@@ -1107,22 +1117,26 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 if (classState.classIndex != null) {
                     deviceKey =
                             classState.classIndex.findByEntity(entity);
-                }
-            }
-            if (deviceKey != null) {
-                // If the primary or secondary index contains the entity
-                // use resulting device key to look up the device in the
-                // device map, and use the referenced Device below.
-                device = deviceMap.get(deviceKey);
-                if (device == null) {
-                    // This can happen due to concurrent modification 
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("No device for deviceKey {} while "
-                                     + "while processing entity {}",
-                                     deviceKey, entity);
+                    if (deviceKey != null){
+                    	// If the primary or secondary index contains the entity
+                    	// use resulting device key to look up the device in the
+                    	// device map, and use the referenced Device below.
+                    	device = deviceMap.get(deviceKey);
+                    	if (device == null) {
+                    		// This can happen due to concurrent modification 
+                    		if (logger.isDebugEnabled()) {
+                    			logger.debug("No device for deviceKey {} while "
+                    					+ "while processing entity {}",
+                    					deviceKey, entity);
+                    		}
+                    	}
                     }
                 }
-            } else {
+            }
+            
+          
+                
+            if (device == null){
                 // If the secondary index does not contain the entity,
                 // create a new Device object containing the entity, and
                 // generate a new device ID if the the entity is on an 
@@ -1167,7 +1181,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 deviceMap.put(deviceKey, device);
 
                 // update indices
-                if (!updateIndices(device, deviceKey)) {
+                if (!updateIndices(device)) {
                     if (deleteQueue == null)
                         deleteQueue = new ArrayList<Long>();
                     deleteQueue.add(deviceKey);
@@ -1183,7 +1197,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
                 break;
             }
-
+            
+            deviceKey = device.deviceKey; 
             if (!isEntityAllowed(entity, device.getEntityClass())) {
                 logger.info("PacketIn is not allowed {} {}", 
                             device.getEntityClass().getName(), entity);
@@ -1197,6 +1212,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                                                  entity.getSwitchPort().shortValue())) {
                 break;
             }
+            
             int entityindex = -1;
             if ((entityindex = device.entityIndex(entity)) >= 0) {
                 // Entity already exists 
@@ -1211,7 +1227,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 }
                 
                 device.entities[entityindex].setLastSeenTimestamp(lastSeen);
-                if (!deviceMap.replace(device.deviceKey,  oldDevice, device)){
+                if (!deviceMap.put(device.deviceKey,  device)){
                 	continue; 
                 }
                 
@@ -1229,7 +1245,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                         findChangedFields(device, entity);
 
                 // update the device map with a replace call
-                boolean res = deviceMap.replace(deviceKey, device, newDevice);
+                boolean res = deviceMap.put(deviceKey,newDevice);
+                System.out.println("here"); 
                 // If replace returns false, restart the process from the
                 // beginning (this implies another thread concurrently
                 // modified this Device).Table
@@ -1238,7 +1255,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
                 device = newDevice;
                 // update indices
-                if (!updateIndices(device, deviceKey)) {
+                if (!updateIndices(device)) {
                     continue;
                 }
                 updateSecondaryIndices(entity,
@@ -1263,7 +1280,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                                 entity.getLastSeenTimestamp().getTime());
                 //TODO : not optimal - not sure if device changed. 
                 if (!device.equals(oldDevice)){
-                	if (!deviceMap.replace(device.deviceKey, oldDevice, device)){
+                	if (!deviceMap.put(device.deviceKey, device)){
                 		continue; 
                 	}
                 }
@@ -1470,7 +1487,6 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
     	//TODO 
     	//CRITICAL
     	//FIX-ME
-    	
     	classStateMap.put(s.clName , s);
     }
 
@@ -1481,8 +1497,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      * @param deviceKey the device key for the device
      * @return true if the update succeeded, false otherwise.
      */
-    private boolean updateIndices(Device device, Long deviceKey) {
-        if (!primaryIndex.updateIndex(device, deviceKey)) {
+    private boolean updateIndices(Device device) {
+        if (!primaryIndex.updateIndex(device)) {
             return false;
         }
 
@@ -1581,7 +1597,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 }
 
                 for (Entity e : toRemove) {
-                    removeEntity(e, d.getEntityClass(), d.deviceKey, toKeep);
+                    removeEntity(e, d.getEntityClass(), d, toKeep);
                 }
 
                 if (toKeep.size() > 0) {
@@ -1601,8 +1617,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                     if (changedFields.size() > 0)
                         update = new DeviceUpdate(d, CHANGE, changedFields);
 
-                    if (!deviceMap.replace(newDevice.getDeviceKey(),
-                                           d,
+                    if (!deviceMap.put(newDevice.getDeviceKey(),
                                            newDevice)) {
                         // concurrent modification; try again
                         // need to use device that is the map now for the next
@@ -1633,10 +1648,10 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
     protected void removeEntity(Entity removed,
                               IEntityClass entityClass,
-                              Long deviceKey,
+                              Device device,
                               Collection<Entity> others) {
         for (DeviceIndex index : secondaryIndexMap.getAll().values()) {
-            if (index.removeEntityIfNeeded(removed, deviceKey, others)){
+            if (index.removeEntityIfNeeded(removed, device.deviceKey, others)){
             	secondaryIndexMap.put(index.keyFields, index); 
             }
         }
@@ -1644,19 +1659,16 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         ClassState classState = getClassState(entityClass);
         boolean changed =false;
         for (DeviceIndex index : classState.secondaryIndexMap.values()) {
-            if (index.removeEntityIfNeeded(removed, deviceKey, others)){
+            if (index.removeEntityIfNeeded(removed, device.deviceKey, others)){
             	changed = true; 
             }
         }
         
-
+        primaryIndex.removeEntityIfNeeded(removed, device, others);
         
-        
-        primaryIndex.removeEntityIfNeeded(removed, deviceKey, others);
-
         if (classState.classIndex != null) {
            if ( classState.classIndex.removeEntityIfNeeded(removed,
-                                                       deviceKey,
+                                                       device.deviceKey,
                                                        others)){
         	   changed = true;
            }
@@ -1677,7 +1689,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         ArrayList<Entity> emptyToKeep = new ArrayList<Entity>();
         for (Entity entity : device.getEntities()) {
             this.removeEntity(entity, device.getEntityClass(), 
-                device.getDeviceKey(), emptyToKeep);
+                device, emptyToKeep);
         }
         if (!deviceMap.remove(device.getDeviceKey(), device)) {
             if (logger.isDebugEnabled())
