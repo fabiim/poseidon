@@ -1256,10 +1256,18 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             // Update attachment point (will only be hit if the device 
             // already existed and no concurrent modification
             if (entity.hasSwitchPort()) {
+            	Device oldDevice = device.clone(); 
                 boolean moved = 
                         device.updateAttachmentPoint(entity.getSwitchDPID(),
                                 entity.getSwitchPort().shortValue(),
                                 entity.getLastSeenTimestamp().getTime());
+                //TODO : not optimal - not sure if device changed. 
+                if (!device.equals(oldDevice)){
+                	if (!deviceMap.replace(device.deviceKey, oldDevice, device)){
+                		continue; 
+                	}
+                }
+                
                 // TODO: use update mechanism instead of sending the 
                 // notification directly
                 if (moved) {
@@ -1289,9 +1297,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         }
 
         processUpdates(deviceUpdates);
-        if (device != null){
-        	deviceMap.put(device.deviceKey, device);
-        }
+        
         return device;
     }
 
