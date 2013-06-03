@@ -221,8 +221,22 @@ public class Device implements IDevice,Serializable{
         computeVlandIds();
     }
     
-    public Device() {
-		// TODO Auto-generated constructor stub
+	public Device(Device device) {
+		this.attachmentPoints = device.attachmentPoints; 
+		this.deviceKey = device.deviceKey; 
+		this.dhcpClientName = device.dhcpClientName;
+		this.entities = device.entities; 
+		this.entityClass = device.entityClass; 
+		this.macAddressString = device.macAddressString; 
+		this.oldAPs = device.oldAPs; 
+		this.vlanIds = device.vlanIds;
+		if (device.entities != null){
+			this.entities = Arrays.copyOf(device.entities, device.entities.length); 
+			for (int i = 0 ; i < this.entities.length ; i++){
+				Entity c = this.entities[i]; 
+				this.entities[i] = c.clone(); 
+			}
+		}else device.entities = null; 
 	}
 
 	private void computeVlandIds() {
@@ -798,5 +812,9 @@ public class Device implements IDevice,Serializable{
         }
         builder.append("]"); 
         return builder.toString();
+    }
+    
+    public Device clone(){
+    	return new Device(this); 
     }
 }

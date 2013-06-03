@@ -126,6 +126,16 @@ public class Entity implements Comparable<Entity>, Serializable {
     // ***************
 
     
+	public Entity(Entity entity) {
+		this.macAddress = entity.macAddress; 
+		this.ipv4Address = entity.ipv4Address; 
+		this.vlan = entity.vlan; 
+		this.switchDPID = entity.switchDPID;
+		this.switchPort = entity.switchPort; 
+		this.lastSeenTimestamp = entity.lastSeenTimestamp; 
+		this.activeSince = entity.activeSince; 
+	}
+
 	@JsonSerialize(using=MACSerializer.class)
     public long getMacAddress() {
         return macAddress;
@@ -282,6 +292,10 @@ public class Entity implements Comparable<Entity>, Serializable {
         if (r != 0) return r;
 
         return 0;
+    }
+    @Override
+    public Entity clone(){
+    	return new Entity(this); 
     }
     
 }

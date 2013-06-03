@@ -1201,12 +1201,20 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             if ((entityindex = device.entityIndex(entity)) >= 0) {
                 // Entity already exists 
                 // update timestamp on the found entity
+            	String s = device.toString(); 
+            	Device oldDevice = device.clone(); 
                 Date lastSeen = entity.getLastSeenTimestamp();
+                
                 if (lastSeen == null) {
                     lastSeen = new Date();
                     entity.setLastSeenTimestamp(lastSeen);
                 }
+                
                 device.entities[entityindex].setLastSeenTimestamp(lastSeen);
+                if (!deviceMap.replace(device.deviceKey,  oldDevice, device)){
+                	continue; 
+                }
+                
                 // we break the loop after the else block and after checking
                 // for new AP
             } else {

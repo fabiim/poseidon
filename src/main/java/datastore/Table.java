@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -240,6 +241,15 @@ public class Table<K extends Serializable ,V extends Serializable> {
 			result.put(serializeKey(en.getKey()), serialize(en.getValue())); 
 		}
 		return result;
+	}
+
+	public void test(V oldDevice, V device, String s) {
+		if (!Arrays.equals(serialize(oldDevice), serialize(device))){
+			System.out.println(s);
+			System.out.println(device); 
+			System.out.println(oldDevice);
+		}
+		
 	}
 
 	
