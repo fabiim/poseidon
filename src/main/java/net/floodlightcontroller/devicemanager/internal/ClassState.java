@@ -5,9 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 import net.floodlightcontroller.devicemanager.IDeviceService.DeviceField;
@@ -16,6 +14,9 @@ import net.floodlightcontroller.devicemanager.IEntityClassifierService;
 import net.floodlightcontroller.devicemanager.internal.original.DeviceUniqueIndex;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
+import datastore.Datastore;
 
 /**
  * Used to cache state about specific entity classes
@@ -117,7 +118,7 @@ public class ClassState implements Serializable{
      * Allocate a new {@link ClassState} object for the class
      * @param clazz the class to use for the state
      */
-    public ClassState(IEntityClass clazz, IEntityClassifierService entityClassifier, Collection<EnumSet<DeviceField>> sets ) {
+    public ClassState(IEntityClass clazz, IEntityClassifierService entityClassifier, Collection<EnumSet<DeviceField>> sets , Datastore ds) {
     	clName = clazz.getName(); 
         EnumSet<DeviceField> keyFields = clazz.getKeyFields();
         EnumSet<DeviceField> primaryKeyFields =
@@ -128,11 +129,11 @@ public class ClassState implements Serializable{
         if (!keyFieldsMatchPrimary)
             classIndex = new net.floodlightcontroller.devicemanager.internal.original.DeviceUniqueIndex(keyFields);
         
-        secondaryIndexMap = new HashMap<EnumSet<DeviceField>, DeviceIndex>();
+        secondaryIndexMap = Maps.newHashMap(); 
 
         for (EnumSet<DeviceField> fields : sets) {
             secondaryIndexMap.put(fields,
-                                  new net.floodlightcontroller.devicemanager.internal.original.DeviceMultiIndex(fields));
+                                  new DeviceMultiIndex(fields, ds));
         }
     }
 }

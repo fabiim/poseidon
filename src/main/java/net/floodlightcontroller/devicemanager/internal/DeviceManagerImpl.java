@@ -165,7 +165,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      * This map contains state for each of the {@ref IEntityClass}
      * that exist
      */
-    protected Table<String, ClassState> classStateMap;
+    protected ConcurrentHashMap<String, ClassState> classStateMap;
 
     /**
      * This is the list of indices we want on a per-class basis
@@ -682,8 +682,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         secondaryIndexMap = ds.getTable("SECONDARY_INDEX_MAP",  null, null);
 
         deviceMap = ds.getTable("DEVICE_MAP",  datastore.util.KeySerializationFunctions.LONG_DESERIALIZE, datastore.util.KeySerializationFunctions.LONG_SERIALIZE);
-        classStateMap = ds.getTable("CLASS_STATE_MAP", null, null); 
-             ;
+        classStateMap = new ConcurrentHashMap<String, ClassState>(); 
+             
         apComparator = new AttachmentPointComparator();
 
         perClassIndices = Maps.newConcurrentMap(); 
@@ -1430,6 +1430,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         return true;
     }
 
+    //TODO - cleanup . every controller will do it. 
     private LinkedList<DeviceUpdate>
     updateUpdates(LinkedList<DeviceUpdate> list, DeviceUpdate update) {
         if (update == null) return list;
@@ -1453,7 +1454,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
         if (classState != null) return classState;
 
-        classState = new ClassState(clazz, this.entityClassifier, perClassIndices.values());
+        classState = new ClassState(clazz, this.entityClassifier, perClassIndices.values(), ds);
         
         //TODO - remover perClassIndices
         ClassState r = classStateMap.putIfAbsent(clazz.getName(), classState);
@@ -1485,7 +1486,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             return false;
         }
 
-     /* OPT no need to get the default classState since primary index is null. 
+     /* OPTIMIZATION no need to get the default classState since primary index is null. 
         IEntityClass entityClass = device.getEntityClass();
         
         ClassState classState = getClassState(entityClass);
@@ -1510,10 +1511,12 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
     private void updateSecondaryIndices(Entity entity,
                                         IEntityClass entityClass,
                                         Long deviceKey) {
-        for (DeviceIndex index : secondaryIndexMap.getAll().values()) {
+        
+    	/*for (DeviceIndex index : secondaryIndexMap.getAll().values()) {
             index.updateIndex(entity, deviceKey);
             secondaryIndexMap.put(index.keyFields, index);
         }
+        */
         ClassState state = getClassState(entityClass);
         boolean changed = state.secondaryIndexMap.values().size() > 0; 
         for (DeviceIndex index : state.secondaryIndexMap.values()) {
