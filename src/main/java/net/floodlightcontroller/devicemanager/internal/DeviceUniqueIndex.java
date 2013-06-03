@@ -17,6 +17,7 @@
 
 package net.floodlightcontroller.devicemanager.internal;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -32,24 +33,25 @@ import datastore.Table;
 /**
  * An index that maps key fields of an entity uniquely to a device key
  */
-public class DeviceUniqueIndex extends DeviceIndex {
+public class DeviceUniqueIndex {
     
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
+	protected EnumSet<DeviceField> keyFields;
 	/**
      * The index
      */
     //private ConcurrentHashMap<IndexedEntity, Long> index;
-    private Table<IndexedEntity, Long> index; 
+    private Table<IndexedEntity, Device> index; 
     
     /**
      * Construct a new device index using the provided key fields
      * @param keyFields the key fields to use
      */
     public DeviceUniqueIndex(EnumSet<DeviceField> keyFields, Datastore ds) {
-        super(keyFields);
+        this.keyFields = keyFields; 
         Table<String,String> table = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null	,null); 
         //TODO - initialization of counters
         String tableId;
@@ -65,23 +67,23 @@ public class DeviceUniqueIndex extends DeviceIndex {
     // DeviceIndex
     // ***********
 
-    @Override
-    public Iterator<Long> queryByEntity(Entity entity) {
-        final Long deviceKey = findByEntity(entity);
+    
+    public Iterator<Device> queryByEntity(Entity entity) {
+        final Device deviceKey = findByEntity(entity);
         if (deviceKey != null)
-            return Collections.<Long>singleton(deviceKey).iterator();
+            return Collections.<Device>singleton(deviceKey).iterator();
         
-        return Collections.<Long>emptySet().iterator();
+        return Collections.<Device>emptySet().iterator();
     }
     
-    @Override
-    public Iterator<Long> getAll() {
+    
+    public Iterator<Device> getAll() {
         return index.getAll().values().iterator();
     }
-
+    
     private Map<IndexedEntity, Boolean> semiBloom = Maps.newHashMap(); 
-    @Override
-    public boolean updateIndex(Device device, Long deviceKey) {
+    
+    public boolean updateIndex(Device device) {
     	
     	
     	//TODO - bloom filter here.
@@ -91,33 +93,32 @@ public class DeviceUniqueIndex extends DeviceIndex {
             IndexedEntity ie = new IndexedEntity(keyFields, e);
             if (!ie.hasNonNullKeys() || semiBloom.containsKey(ie)) continue;
             semiBloom.put(ie, true);
-            Long ret = index.putIfAbsent(ie, deviceKey);
-            if (ret != null && !ret.equals(deviceKey)) {
+            Device ret = index.putIfAbsent(ie, device);
+            if (ret != null && !ret.equals(device)) {
                 // If the return value is non-null, then fail the insert 
                 // (this implies that a device using this entity has 
                 // already been created in another thread).
                 return false;
             }
         }
-        semiBloom.clear(); 
         return true;
     }
     
-    @Override
-    public void updateIndex(Entity entity, Long deviceKey) {
+    
+    public void updateIndex(Entity entity, Device deviceKey) {
         IndexedEntity ie = new IndexedEntity(keyFields, entity);
         if (!ie.hasNonNullKeys()) return;
         index.put(ie, deviceKey);
     }
 
-    @Override
+
     public void removeEntity(Entity entity) {
         IndexedEntity ie = new IndexedEntity(keyFields, entity);
         index.remove(ie);
     }
 
-    @Override
-    public void removeEntity(Entity entity, Long deviceKey) {
+    
+    public void removeEntity(Entity entity, Device deviceKey) {
         IndexedEntity ie = new IndexedEntity(keyFields, entity);
         index.remove(ie, deviceKey);
     }
@@ -131,12 +132,34 @@ public class DeviceUniqueIndex extends DeviceIndex {
      * @param entity the entity to search for
      * @return The key for the {@link Device} object if found
      */
-    public Long findByEntity(Entity entity) {
+    public Device findByEntity(Entity entity) {
         IndexedEntity ie = new IndexedEntity(keyFields, entity);
-        Long deviceKey = index.get(ie);
+        Device deviceKey = index.get(ie);
         if (deviceKey == null)
             return null;
         return deviceKey;
+    }
+    
+    public boolean removeEntityIfNeeded(Entity entity, Device device,
+    		Collection<Entity> others) {
+    	IndexedEntity ie = new IndexedEntity(keyFields, entity);
+    	for (Entity o : others) {
+    		IndexedEntity oio = new IndexedEntity(keyFields, o);
+    		if (oio.equals(ie)) return false;
+    	}
+
+    	boolean changed = false;
+    	Iterator<Device> keyiter = this.queryByEntity(entity);
+    	while (keyiter.hasNext()) {
+    		Long key = keyiter.next().deviceKey;
+    		
+    		if (key.equals(device.deviceKey)) {
+    			removeEntity(entity, device);
+    			changed = true; 
+    			break;
+    		}
+    	}
+    	return changed ; 
     }
 
 }
