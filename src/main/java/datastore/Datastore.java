@@ -35,12 +35,13 @@ public class Datastore{
 
 	public static final String DEVICE_MANAGER_LAST_COUNTER = "DEVICE_MANAGER_LAST_COUNTER"; 
 	public static void initDatastoreFromController(Datastore ds){
-		Table<String, Long>  t = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null, null); 
+		Table<String, Long>  t = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, datastore.util.KeySerializationFunctions.STRING_DESERIALIZE	, datastore.util.KeySerializationFunctions.STRING_SERIALIZE); 
+		
 		//DeviceIndex 
 		if (!t.put(Datastore.DEVICE_MANAGER_LAST_COUNTER, 0L)){
 			System.err.println("Device Manager Last Counter was initiliazed"); 
 		}
-		
+
 		Table<String,String>  t2 = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null, null); 
 		t2.put("DEVICE_UNIQUE_INDEX_COUNTER", "0");
 		t2.put("DEVICE_MULTI_INDEX_COUNTER", "0"); 
@@ -456,6 +457,25 @@ public class Datastore{
 	
 	}
 
+	public byte[] getAndIncrement(String tableName,
+			byte[] key, RequestLogEntry r) {
+		RequestType type = RequestType.GET_AND_INCREMENT; 
+		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
+		DataOutputStream dos = new DataOutputStream(out);
+		
+		try {
+			dos.writeInt(type.ordinal());
+			dos.writeUTF(tableName);
+			dos.writeInt(key.length); 
+			dos.write(key);
+			
+			byte[] reply = invokeRequestOrdered(out,dos, type, r);
+			return reply;
+		}catch(IOException e){
+			return null; 
+		}
+	}
+
 	
 	public int size(String table, RequestLogEntry r) {
 		RequestType type = RequestType.SIZE_OF_TABLE; 
@@ -518,6 +538,7 @@ public class Datastore{
 		r.setSizeOfRequest(out.size());
 	}
 
+	
 	
 
 }

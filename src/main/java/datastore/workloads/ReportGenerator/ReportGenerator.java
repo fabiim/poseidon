@@ -32,14 +32,13 @@ public class ReportGenerator {
 	private static String description; 
 
 	public static void main(String args	[]) throws IOException{
-		
 		//TODO - check is folder . 
 		switch(args.length){
 			case 2:
 				//singularCase(args[1]);
 				//readLogAndCreateReport("./workloads/report/100.known/usedLog.0.1000","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
 				//readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
-				readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/", "100 No arp - Ping between known hosts", "Hosts have static arp tables", 275, 300);
+				readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/", "100 No arp - Ping between known hosts", "Hosts have static arp tables", 225 ,10000);
 				//readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "", 220, 265);
 				//readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/500.base/", "500 Hosts", "", 425, 450);
 				break; 

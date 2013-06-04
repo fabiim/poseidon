@@ -23,7 +23,6 @@ import static net.floodlightcontroller.devicemanager.internal.DeviceManagerImpl.
 import static net.floodlightcontroller.devicemanager.internal.DeviceManagerImpl.DeviceUpdate.Change.DELETE;
 
 import java.io.Serializable;
-
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -43,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import javatests.Foo;
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.IFloodlightProviderService.Role;
@@ -81,7 +81,6 @@ import net.floodlightcontroller.topology.ITopologyListener;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.util.MultiIterator;
 
-import org.jfree.util.Log;
 import org.openflow.protocol.OFMatchWithSwDpid;
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFPacketIn;
@@ -90,6 +89,7 @@ import org.openflow.protocol.OFType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Function;
 import com.google.common.collect.Maps;
 
 import datastore.Datastore;
@@ -103,6 +103,7 @@ import datastore.workloads.ActivityEvent;
  * @author readams
  */
 
+
 public class DeviceManagerImpl implements
 IDeviceService, IOFMessageListener, ITopologyListener,
 IFloodlightModule, IEntityClassListener,
@@ -111,6 +112,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
+
 
 	protected static Logger logger =
             LoggerFactory.getLogger(DeviceManagerImpl.class);
@@ -678,7 +680,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
     	ds = new Datastore();
     	
     	Datastore.initDatastoreFromController(ds);
-    	this.controllersTable = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null, null);  
+    	this.controllersTable = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, datastore.util.KeySerializationFunctions.STRING_DESERIALIZE, datastore.util.KeySerializationFunctions.STRING_SERIALIZE);  
         secondaryIndexMap = ds.getTable("SECONDARY_INDEX_MAP",  null, null);
 
         deviceMap = ds.getTable("DEVICE_MAP",  datastore.util.KeySerializationFunctions.LONG_DESERIALIZE, datastore.util.KeySerializationFunctions.LONG_SERIALIZE);
@@ -980,6 +982,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                           (learnap ? (int)inPort : null),
                           new Date());
     }
+        
     /**
      * Look up a {@link Device} based on the provided {@link Entity}. We first
      * check the primary index. If we do not find an entry there we classify
@@ -1098,7 +1101,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             Long deviceKey = null; 
             device = primaryIndex.findByEntity(entity);
 
-            System.out.println(device);
+
             IEntityClass entityClass = null;
 
             if (device == null) {
@@ -1160,12 +1163,11 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                     break;
                 }
                 
-                Table<String,Long> controllersTable = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null, null);
-                for (deviceKey = controllersTable.get(Datastore.DEVICE_MANAGER_LAST_COUNTER) ; !controllersTable.replace(Datastore.DEVICE_MANAGER_LAST_COUNTER, deviceKey, deviceKey+1 ) ; deviceKey++){
-                	logger.info("trying"); 
-                	continue; 
-                }
+
+                deviceKey = controllersTable.getAndIncrement(Datastore.DEVICE_MANAGER_LAST_COUNTER); 
+                System.out.println(deviceKey); 
                 
+
                 device = allocateDevice(deviceKey, entity, entityClass);
 
 
@@ -1246,7 +1248,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
                 // update the device map with a replace call
                 boolean res = deviceMap.put(deviceKey,newDevice);
-                System.out.println("here"); 
+
                 // If replace returns false, restart the process from the
                 // beginning (this implies another thread concurrently
                 // modified this Device).Table
