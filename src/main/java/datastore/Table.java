@@ -182,7 +182,12 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		log.info("Put if absent : " + key + " -> " +  value); 
 		return  deserialize(datastore.putIfAbsent(tableName,serializeKey(key), serialize(value), new RequestLogEntry(tableName, key.toString(), value.toString())));
 	}
-	
+
+	public V getAndIncrement(K key) {
+		return deserialize(datastore.getAndIncrement(tableName, serializeKey(key), new RequestLogEntry(tableName, key.toString())));
+
+	}
+
 	// Private methods //
 
 		//SERIALIZE/DESERIALIZE// 
@@ -252,6 +257,7 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		
 	}
 
+	
 	
 	
 		// Others //
