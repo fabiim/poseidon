@@ -19,6 +19,8 @@ package net.floodlightcontroller.core.types;
 
 import java.io.Serializable;
 
+import org.openflow.util.HexString;
+
 public class MacVlanPair implements Serializable{
     public Long mac;
     public Short vlan;
@@ -50,5 +52,8 @@ public class MacVlanPair implements Serializable{
     	return mac.toString() + ":" +vlan.toString(); 
     }
     
+    public String toString(){
+    	return HexString.toHexString(mac) + ":" + vlan.toString(); 
+    }
     
 }

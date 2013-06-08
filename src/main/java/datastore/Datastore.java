@@ -105,6 +105,21 @@ public class Datastore{
 		return created ? new Table<K,A>(this, tableName, deserialize,serialize): null;   
 	}
 	
+
+	public  <K extends Serializable,A extends Serializable> Table<K, A> getTableL(String tableName,
+			Function<byte[], K> deserialize,
+			Function<K, byte[]> serialize) {
+		boolean created = true; 
+		if (!this.containsTable(tableName,new RequestLogEntry(tableName))){ 
+			created =this.createTable(tableName, new RequestLogEntry(tableName));
+			log.info("creating a table: " + tableName + " Result : " + created);
+		}
+		return created ? new TableLearningSwitch<K,A>(this, tableName, deserialize,serialize): null;   
+	
+	}
+
+	
+	
 	 /*************************************************
 	  * General Functions: 
 	  * Functions who do not address specific tables.
@@ -520,8 +535,10 @@ public class Datastore{
 		dos.close();
 		
 		
-		start(out, t, r); 
+		if (r != null)
+			start(out, t, r); 
 		byte[] reply = clientProxy.invokeOrdered(out.toByteArray());
+		if (r != null)
 		stop(r,reply != null ? reply.length : 0); //Benchmarking 
 		return reply;
 	}
@@ -538,7 +555,5 @@ public class Datastore{
 		r.setSizeOfRequest(out.size());
 	}
 
-	
-	
 
 }

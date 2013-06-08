@@ -85,6 +85,7 @@ import org.slf4j.LoggerFactory;
 
 import datastore.Datastore;
 import datastore.Table;
+import datastore.workloads.ActivityEvent;
 
 /**
  * A simple load balancer module for ping, tcp, and udp flows. This module is accessed 
@@ -198,6 +199,8 @@ public class LoadBalancer implements IFloodlightModule,
         
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                                               IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+    	ActivityEvent event = this.ds.getBenchManager().addActivity(ActivityEvent.packetIn(eth.toString()));
+
         IPacket pkt = eth.getPayload();
  
         if (eth.isBroadcast() || eth.isMulticast()) {
@@ -208,10 +211,11 @@ public class LoadBalancer implements IFloodlightModule,
                 int targetProtocolAddress = IPv4.toIPv4Address(arpRequest
                                                                .getTargetProtocolAddress());
 
-                if (vipIpToId.containsKey(targetProtocolAddress)) {
+                String vipId = vipIpToId.get(targetProtocolAddress);
+                if (vipId != null) {
                 	//TODO Problem ... 
-                    String vipId = vipIpToId.get(targetProtocolAddress);                    
                     vipProxyArpReply(sw, pi, cntx, vipId);
+                    this.ds.getBenchManager().endActivity(event); 
                     return Command.STOP;
                 }
             }
@@ -222,8 +226,9 @@ public class LoadBalancer implements IFloodlightModule,
                 
                 // If match Vip and port, check pool and choose member
                 int destIpAddress = ip_pkt.getDestinationAddress();
-                
-                if (vipIpToId.containsKey(destIpAddress)){
+
+                String vipIP = vipIpToId.get(destIpAddress); 
+                if (vipIP != null){
                     IPClient client = new IPClient();
                     client.ipAddress = ip_pkt.getSourceAddress();
                     client.nw_proto = ip_pkt.getProtocol();
@@ -244,7 +249,7 @@ public class LoadBalancer implements IFloodlightModule,
                     
                     
                     //TODO This sounds like transactional material... 
-                    LBVip vip = vips.get(vipIpToId.get(destIpAddress));
+                    LBVip vip = vips.get(vipIP);
                     LBPool oldpool, newpool;
                     String pickedMember;
                     do {
@@ -252,18 +257,21 @@ public class LoadBalancer implements IFloodlightModule,
                     	newpool = oldpool.clone(); 
                     	pickedMember = newpool.pickMember(client); //FIXME: boom, another guy has pickedMember;
                     }while ( oldpool != null && !pools.replace(oldpool.id, oldpool, newpool));  
+                    
                     LBMember member = members.get(pickedMember); 
                     // for chosen member, check device manager and find and push routes, in both directions                    
-                    pushBidirectionalVipRoutes(sw, pi, cntx, client, member);
+                    pushBidirectionalVipRoutes(sw, pi, cntx, client, member, vip);
                    
                     // packet out based on table rule
                     pushPacket(pkt, sw, pi.getBufferId(), pi.getInPort(), OFPort.OFPP_TABLE.getValue(),
                                 cntx, true);
                                         
+                    this.ds.getBenchManager().endActivity(event); 
                     return Command.STOP;
                 }
             }
         }
+        this.ds.getBenchManager().endActivity(event); 
         // bypass non-load-balanced traffic for normal processing (forwarding)
         return Command.CONTINUE;
     }
@@ -386,13 +394,14 @@ public class LoadBalancer implements IFloodlightModule,
 
     /**
      * used to find and push in-bound and out-bound routes using StaticFlowEntryPusher
+     * @param vipH 
      * @param IOFSwitch sw
      * @param OFPacketIn pi
      * @param FloodlightContext cntx
      * @param IPClient client
      * @param LBMember member
      */
-    protected void pushBidirectionalVipRoutes(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx, IPClient client, LBMember member) {
+    protected void pushBidirectionalVipRoutes(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx, IPClient client, LBMember member, LBVip vipH) {
         
         // borrowed code from Forwarding to retrieve src and dst device entities
         // Check if we have the location of the destination
@@ -504,11 +513,11 @@ public class LoadBalancer implements IFloodlightModule,
                     // out: match dest client (ip, port), rewrite src from member ip/port to vip ip/port, forward
                     
                     if (routeIn != null) {                            
-                        pushStaticVipRoute(true, routeIn, client, member, sw.getId());
+                        pushStaticVipRoute(true, routeIn, client, member, sw.getId(), vipH);
                     }
                         
                     if (routeOut != null) {                            
-                        pushStaticVipRoute(false, routeOut, client, member, sw.getId());
+                        pushStaticVipRoute(false, routeOut, client, member, sw.getId(), vipH);
                     }
 
                 }
@@ -531,7 +540,7 @@ public class LoadBalancer implements IFloodlightModule,
      * @param LBMember member
      * @param long pinSwitch
      */
-    public void pushStaticVipRoute(boolean inBound, Route route, IPClient client, LBMember member, long pinSwitch) {
+    public void pushStaticVipRoute(boolean inBound, Route route, IPClient client, LBMember member, long pinSwitch, LBVip vipH) {
         List<NodePortTuple> path = route.getPath();
         if (path.size()>0) {
            for (int i = 0; i < path.size(); i+=2) {
@@ -581,8 +590,9 @@ public class LoadBalancer implements IFloodlightModule,
                                + "in_port="+String.valueOf(path.get(i).getPortId());
 
                    if (sw == pinSwitch) {
-                       actionString = "set-src-ip="+IPv4.fromIPv4Address(vips.get(member.vipId).address)+","
-                               + "set-src-mac="+vips.get(member.vipId).proxyMac.toString()+","
+                	   
+                       actionString = "set-src-ip="+IPv4.fromIPv4Address(vipH.address)+","
+                               + "set-src-mac="+vipH.proxyMac.toString()+","
                                + "output="+path.get(i+1).getPortId();
                    } else {
                        actionString = "output="+path.get(i+1).getPortId();

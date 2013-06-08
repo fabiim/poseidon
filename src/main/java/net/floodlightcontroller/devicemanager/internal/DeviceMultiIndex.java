@@ -102,12 +102,13 @@ public class DeviceMultiIndex extends DeviceIndex {
         if (devices == null) {
             Map<Long,Boolean> chm = new ConcurrentHashMap<Long,Boolean>();
             devices = Sets.newHashSet(Collections.newSetFromMap(chm));
+            devices.add(deviceKey);
             HashSet<Long> r = index.putIfAbsent(ie, devices);
-            if (r != null)
-                devices = r;
+            //TODO - race condition devices may have been created meanwhile. 
+            return; 
         }
-        
         devices.add(deviceKey);
+        index.put(ie, devices); 
     }
 
     @Override

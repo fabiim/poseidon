@@ -302,6 +302,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             return 1;
         }
     }
+    
     /**
      * Comparator for sorting by cluster ID
      */
@@ -636,6 +637,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         return Command.CONTINUE;
     }
 
+    
     // *****************
     // IFloodlightModule
     // *****************
@@ -1165,7 +1167,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 
 
                 deviceKey = controllersTable.getAndIncrement(Datastore.DEVICE_MANAGER_LAST_COUNTER); 
-                System.out.println(deviceKey); 
+
                 
 
                 device = allocateDevice(deviceKey, entity, entityClass);
@@ -1178,10 +1180,10 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                     logger.debug("New device created: {} deviceKey={}, entity={}",
                                  new Object[]{device, deviceKey, entity});
                 }
-
+                
                 // Add the new device to the primary map with a simple put
                 deviceMap.put(deviceKey, device);
-
+                
                 // update indices
                 if (!updateIndices(device)) {
                     if (deleteQueue == null)
@@ -1229,7 +1231,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 }
                 
                 device.entities[entityindex].setLastSeenTimestamp(lastSeen);
-                if (!deviceMap.put(device.deviceKey,  device)){
+                deviceMap.replace(device.deviceKey, oldDevice, device);
+                if (!deviceMap.put(device.deviceKey,  device, false)){
                 	continue; 
                 }
                 
@@ -1247,7 +1250,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                         findChangedFields(device, entity);
 
                 // update the device map with a replace call
-                boolean res = deviceMap.put(deviceKey,newDevice);
+                deviceMap.replace(deviceKey, device, newDevice); 
+                boolean res = deviceMap.put(deviceKey,newDevice, false);
 
                 // If replace returns false, restart the process from the
                 // beginning (this implies another thread concurrently
@@ -1280,12 +1284,14 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                         device.updateAttachmentPoint(entity.getSwitchDPID(),
                                 entity.getSwitchPort().shortValue(),
                                 entity.getLastSeenTimestamp().getTime());
-                //TODO : not optimal - not sure if device changed. 
-                if (!device.equals(oldDevice)){
-                	if (!deviceMap.put(device.deviceKey, device)){
+                //TODO : not optimal - not sure if device changed.
+                if (!oldDevice.equals(device)){
+                	deviceMap.replace(deviceKey, oldDevice, device); 
+                	if (!deviceMap.put(device.deviceKey, device,false)){
                 		continue; 
                 	}
                 }
+
                 
                 // TODO: use update mechanism instead of sending the 
                 // notification directly

@@ -23,10 +23,10 @@ import datastore.workloads.RequestLogEntry;
 
 
 public class Table<K extends Serializable ,V extends Serializable> {	
-	private final String tableName;
-	private final Datastore datastore;
-	private Function<K, byte[]> serializeKeyFoo;
-	private Function<byte[],K> deserializeKeyFoo; 
+	protected final String tableName;
+	protected final Datastore datastore;
+	protected Function<K, byte[]> serializeKeyFoo;
+	protected Function<byte[],K> deserializeKeyFoo; 
 	protected static Logger log = LoggerFactory.getLogger(Table.class);
 	//protected static Logger log = LoggerFactory.getLogger("");
 	
@@ -125,6 +125,7 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		log.info("Request for value: " + key + " at table: " + tableName + " result: " + val);
 		return val; 
 	}
+	
 	public V get(K key, boolean v) {
 		if (key == null) return null;
 		V val = deserialize(datastore.get(tableName,serializeKey(key), new RequestLogEntry("DUMMY")));
@@ -146,6 +147,14 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		return r; 
 	}
 
+	public boolean put(K key, V value, boolean b) {
+		// TODO Auto-generated method stub
+		if (key == null) return false;
+		boolean r =  datastore.put(tableName, serializeKey(key), serialize(value), null);
+		log.info("Put : key: " + key + "@" + tableName + " value: " + value );
+		return r; 
+	}
+
 
 	public void putAll(Map<? extends K, ? extends V> m) {
 		datastore.putAll(tableName, serialize(m), new RequestLogEntry(tableName));
@@ -156,7 +165,7 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		if (key == null) return null; 
 		//TODO - boolean return as put?.
 		
-		return deserialize(datastore.remove(tableName, serializeKey(key), new RequestLogEntry(tableName)));
+		return deserialize(datastore.remove(tableName, serializeKey(key), new RequestLogEntry(tableName, key.toString())));
 	}
 
 
@@ -205,7 +214,7 @@ public class Table<K extends Serializable ,V extends Serializable> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private V deserialize(byte [] v){
+	protected V deserialize(byte [] v){
 		if (v == null ) return null; 
 		try {
 			return (V) deserializeO(v);
@@ -218,7 +227,7 @@ public class Table<K extends Serializable ,V extends Serializable> {
 	}
 	
 	
-	private byte[] serialize(V value){
+	protected byte[] serialize(V value){
 		//TODO: how about null values?
 			try {
 				return serializeO(value);
@@ -231,7 +240,7 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		return null; // FIXME 
 	}
 
-	private byte[] serializeKey(K val){
+	protected byte[] serializeKey(K val){
 		return this.serializeKeyFoo.apply(val); 
 	}
 	

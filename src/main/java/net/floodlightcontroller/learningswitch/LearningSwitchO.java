@@ -73,6 +73,7 @@ import com.google.common.collect.Maps;
 import datastore.Datastore;
 import datastore.Table;
 import datastore.util.KeySerializationFunctions;
+import datastore.workloads.ActivityEvent;
 
 public class LearningSwitchO 
     implements IFloodlightModule, ILearningSwitchServiceO, IOFMessageListener {
@@ -150,7 +151,7 @@ public class LearningSwitchO
     		stable = tables.get(sw.getStringId()); 
     	}
     	else{
-    		stable = datastore.getTable(sw.getStringId(),  KeySerializationFunctions.STRING_DESERIALIZE ,KeySerializationFunctions.STRING_SERIALIZE);
+    		stable = datastore.getTableL(sw.getStringId(),  KeySerializationFunctions.STRING_DESERIALIZE ,KeySerializationFunctions.STRING_SERIALIZE);
     		tables.put(sw.getStringId(), stable); 
     	}
 		return stable;
@@ -331,7 +332,12 @@ public class LearningSwitchO
      * @return
      */
     private Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx) {
-        // Read in packet data headers by using OFMatch
+    	Ethernet eth =
+                IFloodlightProviderService.bcStore.
+                get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+    	ActivityEvent event = this.datastore.getBenchManager().addActivity(ActivityEvent.packetIn(eth.toString()));
+    	
+    	// Read in packet data headers by using OFMatch
         OFMatch match = new OFMatch();
         match.loadFromPacket(pi.getPacketData(), pi.getInPort());
         Long sourceMac = Ethernet.toLong(match.getDataLayerSource());
@@ -342,6 +348,7 @@ public class LearningSwitchO
                 log.trace("ignoring packet addressed to 802.1D/Q reserved addr: switch {} vlan {} dest MAC {}",
                           new Object[]{ sw, vlan, HexString.toHexString(destMac) });
             }
+            this.datastore.getBenchManager().endActivity(event); 
             return Command.STOP;
         }
         if ((sourceMac & 0x010000000000L) == 0) {
@@ -389,6 +396,8 @@ public class LearningSwitchO
                     match.getInputPort());
             }
         }
+        
+        this.datastore.getBenchManager().endActivity(event); 
         return Command.CONTINUE;
     }
 
