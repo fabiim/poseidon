@@ -1,7 +1,9 @@
 net.floodlightcontroller.core.FloodlightProvider
 net.floodlightcontroller.storage.memory.MemoryStorageSource
-net.floodlightcontroller.devicemanager.DeviceManagerImpl
 net.floodlightcontroller.devicemanager.internal.DeviceManagerImpl
+net.floodlightcontroller.devicemanager.internal.DefaultEntityClassifier
+net.floodlightcontroller.devicemanager.normal.DeviceManagerImpl
+net.floodlightcontroller.devicemanager.normal.DefaultEntityClassifier
 net.floodlightcontroller.linkdiscovery.internal.LinkDiscoveryManager
 net.floodlightcontroller.topology.original.TopologyManager
 net.floodlightcontroller.forwarding.Forwarding
@@ -26,3 +28,4 @@ net.floodlightcontroller.core.test.MockFloodlightProvider
 net.floodlightcontroller.core.test.MockThreadPoolService
 net.floodlightcontroller.firewall.Firewall
 net.floodlightcontroller.loadbalancer.original.LoadBalancer
+net.floodlightcontroller.loadbalancer.LoadBalancer
