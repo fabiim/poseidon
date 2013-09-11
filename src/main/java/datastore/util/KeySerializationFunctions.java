@@ -15,8 +15,9 @@ import net.floodlightcontroller.devicemanager.internal.Entity;
 import net.floodlightcontroller.devicemanager.internal.IndexedEntity;
 import net.floodlightcontroller.topology.NodePortTuple;
 
-import org.python.google.common.base.Function;
 
+
+import com.google.common.base.Function;
 import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 
@@ -46,12 +47,14 @@ return Shorts.toByteArray(c);
 }
 }; 
 
-public static final Function<byte[] ,Short> SHORT_DESERIALIZE =
-new Function<byte[] ,Short>(){
-public Short apply(byte[]  c){
-return Shorts.fromByteArray(c);
+public static final com.google.common.base.Function<byte[], Short> SHORT_DESERIALIZE =
+	new Function<byte[] ,Short>(){
+		public Short apply(byte[]  c){
+		return Shorts.fromByteArray(c);
 }
 }; 
+
+
 
 	public static final Function<String, byte[]> STRING_SERIALIZE = 
 			new Function<String ,byte[] >(){
@@ -67,7 +70,8 @@ return Shorts.fromByteArray(c);
 				}
 		};
 		
-
+	
+			
 	public static byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         ObjectOutputStream o = new ObjectOutputStream(b);
@@ -110,97 +114,7 @@ public static final Function<byte[] ,NodePortTuple> NODE_PORT_TUPLE_DESERIALIZE 
 		return null; 
 	}
 };
-public static final Function<IndexedEntity, byte[] > INDEXED_ENTITY_SERIALIZE = 
-		new Function<IndexedEntity, byte[] >(){
-			
-		public byte[]  apply (IndexedEntity c){
-			try {
-		        ByteArrayOutputStream b = new ByteArrayOutputStream();
-		        ObjectOutputStream out = new ObjectOutputStream(b);
-		
-				out.writeObject(c.getKeyFields());
-				for (DeviceField f : c.getKeyFields()){
-					
-					switch(f){
-					case IPV4:
-						out.writeObject(c.getEntity().getIpv4Address());
-						break;
-					case MAC:
-						out.writeObject(new Long(c.getEntity().getMacAddress()));
-						break;
-					case PORT:
-						out.writeObject(c.getEntity().getSwitchPort());
-						break;
-					case SWITCH:
-						out.writeObject(c.getEntity().getSwitchDPID());
-						break;
-					case VLAN:
-						out.writeObject(c.getEntity().getVlan());
-						break;
-					}
-					
-				}
-				out.flush(); 
-				out.close();
-				return b.toByteArray(); 
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			return null; 
-	}
-}; 
 
-public static final Function<byte[] ,IndexedEntity> INDEXED_ENTITY_DESERIALIZE =
-		new Function<byte[] ,IndexedEntity>(){
-
-	public IndexedEntity apply (byte[]  c){
-		try {
-        ByteArrayInputStream b = new ByteArrayInputStream(c);
-        ObjectInputStream o = new ObjectInputStream(b);
-		EnumSet<DeviceField> fields = (EnumSet<DeviceField>) o.readObject();
-		IndexedEntity ie = new IndexedEntity();
-		ie.setKeyFields(fields);
-		Long macAddress=null;  
-		Short vlan =null;
-        Integer ipv4Address=null; 
-		Long switchDPID = null; 
-		Integer switchPort = null; 
-        Date lastSeenTimestamp =null;
-		for (DeviceField f: fields){
-			switch(f){
-			case IPV4:
-				ipv4Address = (Integer) o.readObject(); 
-				break;
-			case MAC:
-				macAddress = (Long) o.readObject(); 
-				break;
-			case PORT:
-				switchPort = (Integer) o.readObject(); 
-				break;
-			case SWITCH:
-				switchDPID = (Long) o.readObject(); 
-				break;
-			case VLAN:
-				vlan = (Short) o.readObject(); 
-				break;
-			
-			}
-		}
-		Entity e = new Entity(macAddress, vlan, ipv4Address, switchDPID, switchPort, lastSeenTimestamp);
-		ie.setEntity(e);
-		return ie; 
-	} catch (IOException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	} catch (ClassNotFoundException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	}
-	return null; 
-}
-}; 
 	
 	
 }

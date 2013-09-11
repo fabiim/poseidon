@@ -45,44 +45,95 @@ import org.openflow.util.HexString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import bonafide.datastore.tables.Column;
+
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
+import datastore.column.TrackableColumns;
 
 /**
  * Concrete implementation of {@link IDevice}
  * @author readams
  */
+
+/*
+ * Changes: 
+ *  	* Avoiding direct referencing of private fields in this implementation was done only for ease of programming correctness while developing the datastore columns feature.
+ *  
+ * Cluttering: 
+ *      * XXX A lot of logic based on collection fields being null. That creeps me out.  
+ */
 @JsonSerialize(using=DeviceSerializer.class)
-public class Device implements IDevice,Serializable{
+public final class Device implements IDevice,Serializable{
+	
+	
     /**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-
-	public static DeviceManagerImpl deviceManager; 
 	
+	/*
+	 * Shared map to optimize space usage in device instances. 
+	 * Devices used to keep a reference to the entityClass used to classify them. 
+	 * Now, with this optimization instances keep a string reference to the shared map with all EntityClasses known. 
+	 * 
+	 * TODO At the moment i can only guess that different controllers instances would have the same EntityClass, but maybe
+	 * we would have to have some service to deploy and start different entityclasses making sure that they would be shared through the datastore.
+	 * 
+	 * XXX Maybe this is not necessary per se. Something like keeping reference in the DeviceManager could be cleaner even if worse in space complexity (Entity -> Devices map)
+	 * 	   Also, not sure how much relevant this info is for device manager. Check newest floodlight source, where it is used etc,
+	 * 
+	 *  @see #entityClass 
+	 */
+	private static Map<String,IEntityClass> entitiesClasses = Maps.newConcurrentMap();
+	
+	//private String entityClassName;
+	
+	public static DeviceManagerImpl deviceManager; 
 	protected static Logger log =
             LoggerFactory.getLogger(Device.class);
 
-    protected Long deviceKey;
+	// Changed from original source: DeviceManagerImpl is addressed statically to optimize space. 
+	// This was actually done first because I wanted to serialize the Device class and I had not learned the transient property at the time to avoid marshalling this reference. 
+	public static DeviceManagerImpl getDeviceManager() {
+			return deviceManager;
+	}
+	
+	public static void setDeviceManager(DeviceManagerImpl deviceManager) {
+			Device.deviceManager = deviceManager;
+	}
+	
+
+
+
+    private Long deviceKey;
     
-    public Entity[] entities;
-    protected IEntityClass entityClass;
+    private Entity[] entities;
     
-    protected String macAddressString;
+    private String entityClass;
+    
+    private String macAddressString;
     // the vlan Ids from the entities of this device
-    protected Short[] vlanIds;
-    protected String dhcpClientName;
+    private Short[] vlanIds;
+    private String dhcpClientName;
+    
+    
+    public Device(){
+    	
+    }
     
     
     /**
      * These are the old attachment points for the device that were
      * valid no more than INACTIVITY_TIME ago.
      */
-    protected List<AttachmentPoint> oldAPs;
+    private List<AttachmentPoint> oldAPs;
     /**
      * The current attachment points for the device.
      */
-    protected List<AttachmentPoint> attachmentPoints;
+    private List<AttachmentPoint> attachmentPoints;
+  
     // ************
     // Constructors
     // ************
@@ -97,17 +148,19 @@ public class Device implements IDevice,Serializable{
     public Device(Long deviceKey,
                   Entity entity,
                   IEntityClass entityClass) {
-        
-        this.deviceKey = deviceKey;
-        this.entities = new Entity[] {entity};
-        this.macAddressString =
-                HexString.toHexString(entity.getMacAddress(), 6);
-        this.entityClass = entityClass;
-        Arrays.sort(this.entities);
 
-        this.dhcpClientName = null;
-        this.oldAPs = null;
-        this.attachmentPoints = null;
+    	setEntityClass(entityClass); 
+        setDeviceKey(deviceKey);
+        setEntities(new Entity[] {entity});
+        setMACAddressString(HexString.toHexString(entity.getMacAddress(), 6));
+        setEntityClass(entityClass.getName());
+        
+        //Commented out from original source:  Doesn't entities contains one element only?  
+        //Arrays.sort(this.entities);
+
+        setDhcpClientName(null);
+        setOldAPs(null);
+        setAttachmentPoints(null);
 
         if (entity.getSwitchDPID() != null &&
                 entity.getSwitchPort() != null){
@@ -117,15 +170,14 @@ public class Device implements IDevice,Serializable{
             if (deviceManager.isValidAttachmentPoint(sw, port)) {
                 AttachmentPoint ap;
                 ap = new AttachmentPoint(sw, port,entity.getLastSeenTimestamp().getTime());
-
-                this.attachmentPoints = new ArrayList<AttachmentPoint>();
-                this.attachmentPoints.add(ap);
+                setAttachmentPoints(new ArrayList<AttachmentPoint>());
+                addAttachmentPoint(ap);
             }
         }
         computeVlandIds();
     }
-
-    /**
+	
+	/**
      * Create a device from a set of entities
      * @param deviceManager the device manager for this device
      * @param deviceKey the unique identifier for this device object
@@ -139,22 +191,25 @@ public class Device implements IDevice,Serializable{
                   Collection<Entity> entities,
                   IEntityClass entityClass) {
 
-        this.deviceKey = deviceKey;
-        this.dhcpClientName = dhcpClientName;
-        this.entities = entities.toArray(new Entity[entities.size()]);
-        this.oldAPs = null;
-        this.attachmentPoints = null;
+        setDeviceKey( deviceKey);
+        setDhcpClientName(dhcpClientName);
+        setEntities(entities.toArray(new Entity[entities.size()]));
+        setOldAPs(null);
+        setAttachmentPoints( null);
         if (oldAPs != null) {
-            this.oldAPs =
-                    new ArrayList<AttachmentPoint>(oldAPs);
+            setOldAPs(
+                    new ArrayList<AttachmentPoint>(oldAPs));
         }
         if (attachmentPoints != null) {
-            this.attachmentPoints =
-                    new ArrayList<AttachmentPoint>(attachmentPoints);
+            setAttachmentPoints(
+                    new ArrayList<AttachmentPoint>(attachmentPoints));
         }
-        this.macAddressString =
-                HexString.toHexString(this.entities[0].getMacAddress(), 6);
-        this.entityClass = entityClass;
+        
+        setMACAddressString (
+                HexString.toHexString(this.getEntity(0).getMacAddress(), 6));
+        setEntityClass( entityClass.getName());
+        
+        setEntityClass(entityClass);
         Arrays.sort(this.entities);
         computeVlandIds();
     }
@@ -167,85 +222,168 @@ public class Device implements IDevice,Serializable{
      * @param device the old device object
      * @param newEntity the entity to add. newEntity must be have the same
      *        entity class as device
-     * @param if positive indicates the index in the entities array were the
+     * @param insertionpoint if positive indicates the index in the entities array were the
      *        new entity should be inserted. If negative we will compute the
      *        correct insertion point
      */
     public Device(Device device,
                   Entity newEntity,
                   int insertionpoint) {
-        this.deviceKey = device.deviceKey;
-        this.dhcpClientName = device.dhcpClientName;
+        setDeviceKey(device.getDeviceKey());
+        setDhcpClientName(device.getDhcpClientName()); 
         
-        this.entities = new Entity[device.entities.length + 1];
+        Entity[] srcEntities = device.getEntities();
+		Entity[] dstEntities = new Entity[srcEntities.length + 1]; 
+        
+        
         if (insertionpoint < 0) {
-            insertionpoint = -(Arrays.binarySearch(device.entities, 
+            insertionpoint = -(Arrays.binarySearch(srcEntities, 
                                                    newEntity)+1);
         }
+        
+        
         if (insertionpoint > 0) {
             // insertion point is not the beginning:
             // copy up to insertion point
-            System.arraycopy(device.entities, 0, 
-                             this.entities, 0,
+        	
+        	System.arraycopy(srcEntities, 0, 
+                             dstEntities, 0,
                              insertionpoint);
         }
-        if (insertionpoint < device.entities.length) {
+        
+        if (insertionpoint < srcEntities.length) {
             // insertion point is not the end 
             // copy from insertion point
-            System.arraycopy(device.entities, insertionpoint, 
-                             this.entities, insertionpoint+1,
-                             device.entities.length-insertionpoint);
+            System.arraycopy(srcEntities, insertionpoint, 
+                             dstEntities, insertionpoint+1,
+                             srcEntities.length-insertionpoint);
         }
-        this.entities[insertionpoint] = newEntity;
+        dstEntities[insertionpoint] = newEntity;
+        setEntities(dstEntities);
+        
         /*
         this.entities = Arrays.<Entity>copyOf(device.entities,
                                               device.entities.length + 1);
         this.entities[this.entities.length - 1] = newEntity;
         Arrays.sort(this.entities);
         */
-        this.oldAPs = null;
-        if (device.oldAPs != null) {
-            this.oldAPs =
-                    new ArrayList<AttachmentPoint>(device.oldAPs);
+        setOldAPs(null);
+        
+        if (device.getOldAPs() != null) {
+            setOldAPs(
+                    new ArrayList<AttachmentPoint>(device.getOldAPs()));
         }
-        this.attachmentPoints = null;
-        if (device.attachmentPoints != null) {
-            this.attachmentPoints =
-                    new ArrayList<AttachmentPoint>(device.attachmentPoints);
+        setAttachmentPoints(null);
+        if (device.getAps() != null) {
+
+            setAttachmentPoints( 
+                    new ArrayList<AttachmentPoint>(device.getAps()));
         }
 
-        this.macAddressString =
-                HexString.toHexString(this.entities[0].getMacAddress(), 6);
+        setMACAddressString(
+                HexString.toHexString(this.getEntity(0).getMacAddress(), 6));
 
-        this.entityClass = device.entityClass;
+        setEntityClass(device.getEntityClass());
         computeVlandIds();
     }
     
+
+    
+    /*
+     * Deep copy constructor.
+     * Actually it only deep copys entities right now... XXX 
+     * @param device the device to clone 
+     * TODO do not think i need this anymore 
+     */
 	public Device(Device device) {
-		this.attachmentPoints = device.attachmentPoints; 
-		this.deviceKey = device.deviceKey; 
-		this.dhcpClientName = device.dhcpClientName;
-		this.entities = device.entities; 
-		this.entityClass = device.entityClass; 
-		this.macAddressString = device.macAddressString; 
-		this.oldAPs = device.oldAPs; 
-		this.vlanIds = device.vlanIds;
-		if (device.entities != null){
-			this.entities = Arrays.copyOf(device.entities, device.entities.length); 
-			for (int i = 0 ; i < this.entities.length ; i++){
-				Entity c = this.entities[i]; 
-				this.entities[i] = c.clone(); 
+		setAttachmentPoints(device.getAps());
+		setDeviceKey(device.getDeviceKey());
+		setDhcpClientName(device.getDhcpClientName());
+		setEntityClass(device.getEntityClass());
+		setMACAddressString(device.getMACAddressString());
+		setOldAPs(device.getOldAPs());
+		setVlanIds(device.getVlanId());
+
+		if (device.getEntities() != null){
+			Entity[] entities = Arrays.copyOf(device.getEntities(), device.getEntities().length); 
+			for (int i = 0 ; i < entities.length ; i++){
+				entities[i] = entities[i].clone(); 
 			}
-		}else device.entities = null; 
+			setEntities(entities); 
+		}
+		// ?????? else device.entities = null; 
 	}
 
+	/*XXX interface getter uses MAC naming 
+	 * public String getMacAddressString() {
+		return macAddressString;
+	}
+*/
+	
+	/// Getters and Setters 
+	
+	public void setMACAddressString(String macAddressString) {
+		this.macAddressString = macAddressString;
+	}
+	@Column
+	public Short[] getVlanIds() {
+		return vlanIds;
+	}
+	
+	public void setVlanIds(Short[] vlanIds) {
+		this.vlanIds = vlanIds;
+	}
+	@Column
+	public String getDhcpClientName() {
+		return dhcpClientName;
+	}
+
+	public void setDhcpClientName(String dhcpClientName) {
+		this.dhcpClientName = dhcpClientName;
+	}
+
+	@Column
+	public List<AttachmentPoint> getOldAPs() {
+		return oldAPs;
+	}
+
+	public void setOldAPs(List<AttachmentPoint> oldAPs) {
+		this.oldAPs = oldAPs;
+	}
+	
+	public static EnumSet<DeviceField> getIpv4fields() {
+		return ipv4Fields;
+	}
+
+	public void setDeviceKey(Long deviceKey) {
+		this.deviceKey = deviceKey;
+	}
+
+	
+	public void setEntityClass(String entityClass) {
+		this.entityClass = entityClass;
+	}
+
+	public void setAttachmentPoints(List<AttachmentPoint> attachmentPoints) {
+		this.attachmentPoints = attachmentPoints;
+	}
+	
+	public void addAttachmentPoint(AttachmentPoint ap){
+		attachmentPoints.add(ap); 
+	}
+	
+	
 	private void computeVlandIds() {
+		Entity[] entities = getEntities(); 
         if (entities.length == 1) {
+        	Short[] vlanIds;
             if (entities[0].getVlan() != null) {
                 vlanIds = new Short[]{ entities[0].getVlan() };
+                
             } else {
                 vlanIds = new Short[] { Short.valueOf((short)-1) };
             }
+            setVlanIds(vlanIds);
         }
 
         TreeSet<Short> vals = new TreeSet<Short>();
@@ -255,17 +393,18 @@ public class Device implements IDevice,Serializable{
             else
                 vals.add(e.getVlan());
         }
-        vlanIds = vals.toArray(new Short[vals.size()]);
+        setVlanIds(vals.toArray(new Short[vals.size()]));
     }
 
 
     /**
      * Given a list of attachment points (apList), the procedure would return
      * a map of attachment points for each L2 domain.  L2 domain id is the key.
+     * XXX Not sure why i am not static . 
      * @param apList
      * @return
      */
-    private Map<Long, AttachmentPoint> getAPMap(List<AttachmentPoint> apList) {
+    private  Map<Long, AttachmentPoint> getAPMap(List<AttachmentPoint> apList) {
 
     	if (apList == null) return null;
     	ITopologyService topology = deviceManager.topology; 
@@ -306,6 +445,7 @@ public class Device implements IDevice,Serializable{
     /**
      * Remove all attachment points that are older than INACTIVITY_INTERVAL
      * from the list.
+     * XXX not sure why i am not static. 
      * @param apList
      * @return
      */
@@ -334,6 +474,8 @@ public class Device implements IDevice,Serializable{
      * 1. ap is inconsistent with trueAP, and
      * 2. active time of ap is after that of trueAP; and
      * 3. last seen time of ap is within the last INACTIVITY_INTERVAL
+     * XXX someone forgot about my modifier
+     * XXX not sure why i am not static 
      * @param oldAPList
      * @param apMap
      * @return
@@ -374,7 +516,7 @@ public class Device implements IDevice,Serializable{
      */
     protected boolean updateAttachmentPoint() {
         boolean moved = false;
-
+        Collection<AttachmentPoint> attachmentPoints = getAps(); 
         if (attachmentPoints == null || attachmentPoints.isEmpty())
             return false;
 
@@ -390,11 +532,11 @@ public class Device implements IDevice,Serializable{
             List<AttachmentPoint> newAPList =
                     new ArrayList<AttachmentPoint>();
             if (newMap != null) newAPList.addAll(newMap.values());
-            this.attachmentPoints = newAPList;
+            setAttachmentPoints(newAPList);
         }
 
-        // Set the oldAPs to null.
-        this.oldAPs = null;
+        // Set the oldAPs to null. Fabio: really ? Not empty, just null? 
+        setOldAPs(null); 
         return moved;
     }
 
@@ -416,6 +558,9 @@ public class Device implements IDevice,Serializable{
         if (!deviceManager.isValidAttachmentPoint(sw, port)) return false;
         AttachmentPoint newAP = new AttachmentPoint(sw, port, lastSeen);
 
+        Collection<AttachmentPoint> attachmentPoints = getAps(); 
+        Collection<AttachmentPoint> oldAPs = getOldAPs();
+        
         //Copy the oldAP and ap list.
         apList = new ArrayList<AttachmentPoint>();
         if (attachmentPoints != null) apList.addAll(attachmentPoints);
@@ -428,7 +573,7 @@ public class Device implements IDevice,Serializable{
             int index = oldAPList.indexOf(newAP);
             newAP = oldAPList.remove(index);
             newAP.setLastSeen(lastSeen);
-            this.oldAPs = oldAPList;
+            setOldAPs( oldAPList);
             oldAPFlag = true;
         }
 
@@ -450,7 +595,7 @@ public class Device implements IDevice,Serializable{
             apList = new ArrayList<AttachmentPoint>();
             apList.addAll(apMap.values());
             apList.add(newAP);
-            this.attachmentPoints = apList;
+            setAttachmentPoints( apList);
             return true; // new AP found on an L2 island.
         }
 
@@ -461,22 +606,23 @@ public class Device implements IDevice,Serializable{
             if (newAP.lastSeen > oldAP.lastSeen) {
                 oldAP.setLastSeen(newAP.lastSeen);
             }
-            this.attachmentPoints =
-                    new ArrayList<AttachmentPoint>(apMap.values());
+            setAttachmentPoints(
+                    new ArrayList<AttachmentPoint>(apMap.values()));
             return false; // nothing to do here.
         }
-
+        
         int x = deviceManager.apComparator.compare(oldAP, newAP);
+        
         if (x < 0) {
             // newAP replaces oldAP.
             apMap.put(id, newAP);
-            this.attachmentPoints =
-                    new ArrayList<AttachmentPoint>(apMap.values());
+            setAttachmentPoints(
+                    new ArrayList<AttachmentPoint>(apMap.values()));
 
             oldAPList = new ArrayList<AttachmentPoint>();
             if (oldAPs != null) oldAPList.addAll(oldAPs);
             oldAPList.add(oldAP);
-            this.oldAPs = oldAPList;
+            setOldAPs(oldAPList);
             if (!topology.isInSameBroadcastDomain(oldAP.getSw(), oldAP.getPort(),
                                                   newAP.getSw(), newAP.getPort()))
                 return true; // attachment point changed.
@@ -487,7 +633,7 @@ public class Device implements IDevice,Serializable{
             if (oldAPs != null) oldAPList.addAll(oldAPs);
             // Add to oldAPList only if it was picked up from the oldAPList
             oldAPList.add(newAP);
-            this.oldAPs = oldAPList;
+            setOldAPs(oldAPList);
             if (!topology.isInSameBroadcastDomain(oldAP.getSw(), oldAP.getPort(),
                                                   newAP.getSw(), newAP.getPort()))
                 return true; // attachment point changed.
@@ -504,24 +650,25 @@ public class Device implements IDevice,Serializable{
      */
     public boolean deleteAttachmentPoint(long sw, short port) {
         AttachmentPoint ap = new AttachmentPoint(sw, port, 0);
-
-        if (this.oldAPs != null) {
+        Collection<AttachmentPoint> oldAPs = getOldAPs(); 
+        if (oldAPs != null) {
             ArrayList<AttachmentPoint> apList = new ArrayList<AttachmentPoint>();
-            apList.addAll(this.oldAPs);
+            apList.addAll(oldAPs);
             int index = apList.indexOf(ap);
             if (index > 0) {
                 apList.remove(index);
-                this.oldAPs = apList;
+                setOldAPs( apList);
+                
             }
         }
-
-        if (this.attachmentPoints != null) {
+        Collection<AttachmentPoint> attachmentPoints = getAps(); 
+        if (attachmentPoints != null) {
             ArrayList<AttachmentPoint> apList = new ArrayList<AttachmentPoint>();
-            apList.addAll(this.attachmentPoints);
+            apList.addAll(attachmentPoints);
             int index = apList.indexOf(ap);
             if (index > 0) {
                 apList.remove(index);
-                this.attachmentPoints = apList;
+                attachmentPoints = apList;
                 return true;
             }
         }
@@ -536,8 +683,9 @@ public class Device implements IDevice,Serializable{
         // Delete the APs on switch sw in oldAPs.
         deletedFlag = false;
         apList = new ArrayList<AttachmentPoint>();
-        if (this.oldAPs != null)
-            apList.addAll(this.oldAPs);
+        Collection<AttachmentPoint> oldAPs = getOldAPs(); 
+        if (oldAPs != null)
+            apList.addAll(oldAPs);
         modifiedList = new ArrayList<AttachmentPoint>();
 
         for(AttachmentPoint ap: apList) {
@@ -549,14 +697,16 @@ public class Device implements IDevice,Serializable{
         }
 
         if (deletedFlag) {
-            this.oldAPs = modifiedList;
+        	setOldAPs(modifiedList); 
+            
         }
 
         // Delete the APs on switch sw in attachmentPoints.
         deletedFlag = false;
         apList = new ArrayList<AttachmentPoint>();
-        if (this.attachmentPoints != null)
-            apList.addAll(this.attachmentPoints);
+        Collection<AttachmentPoint> attachmentPoints = getAps(); 
+        if (attachmentPoints != null)
+            apList.addAll(attachmentPoints);
         modifiedList = new ArrayList<AttachmentPoint>();
 
         for(AttachmentPoint ap: apList) {
@@ -568,7 +718,7 @@ public class Device implements IDevice,Serializable{
         }
 
         if (deletedFlag) {
-            this.attachmentPoints = modifiedList;
+            setAttachmentPoints( modifiedList);
             return true;
         }
 
@@ -576,19 +726,28 @@ public class Device implements IDevice,Serializable{
     }
 
 
+    ///XXX getAps setter is setAttachmentPoints
+    
+    @Column(setter="setAttachmentPoints")
+    public List<AttachmentPoint> getAps(){
+    	return this.attachmentPoints; 
+    }
+    
+    
     @Override
     public SwitchPort[] getAttachmentPoints() {
         return getAttachmentPoints(false);
     }
 
+    
     @Override
     public SwitchPort[] getAttachmentPoints(boolean includeError) {
         List<SwitchPort> sp = new ArrayList<SwitchPort>();
         SwitchPort [] returnSwitchPorts = new SwitchPort[] {};
-        if (attachmentPoints == null) return returnSwitchPorts;
-        if (attachmentPoints.isEmpty()) return returnSwitchPorts;
-
-
+        Collection<AttachmentPoint> attachmentPoints = getAps(); 
+        if (attachmentPoints == null || attachmentPoints.isEmpty()) return returnSwitchPorts;
+        
+        
         // copy ap list.
         List<AttachmentPoint> apList;
         apList = new ArrayList<AttachmentPoint>();
@@ -609,11 +768,12 @@ public class Device implements IDevice,Serializable{
 
         List<AttachmentPoint> oldAPList;
         oldAPList = new ArrayList<AttachmentPoint>();
-
+        Collection<AttachmentPoint> oldAPs = getOldAPs(); 
         if (oldAPs != null) oldAPList.addAll(oldAPs);
 
         if (removeExpiredAttachmentPoints(oldAPList))
-            this.oldAPs = oldAPList;
+        	setOldAPs(oldAPList);
+            
 
         List<AttachmentPoint> dupList;
         dupList = this.getDuplicateAttachmentPoints(oldAPList, apMap);
@@ -632,27 +792,31 @@ public class Device implements IDevice,Serializable{
     // IDevice
     // *******
 
+    @Column
     @Override
     public Long getDeviceKey() {
         return deviceKey;
     }
 
+    
     @Override
     public long getMACAddress() {
         // we assume only one MAC per device for now.
         return entities[0].getMacAddress();
     }
 
+    @Column
     @Override
     public String getMACAddressString() {
         return macAddressString;
     }
 
+    @Column(setter="setVlanIds")
     @Override
     public Short[] getVlanId() {
         return Arrays.copyOf(vlanIds, vlanIds.length);
     }
-
+    
     static final EnumSet<DeviceField> ipv4Fields = EnumSet.of(DeviceField.IPV4);
 
     
@@ -663,6 +827,7 @@ public class Device implements IDevice,Serializable{
 
         TreeSet<Integer> vals = new TreeSet<Integer>();
         
+        Entity[] entities = getEntities();
         for (Entity e : entities) {
         	
             if (e.getIpv4Address() == null) continue;
@@ -671,13 +836,13 @@ public class Device implements IDevice,Serializable{
             // we have the most recent entity with that IP.
             boolean validIP = true;
             Iterator<Device> devices =
-                    deviceManager.queryClassByEntity(entityClass, ipv4Fields, e);
+                    deviceManager.queryClassByEntity(getEntityClass(), ipv4Fields, e);
             while (devices.hasNext()) {
             	
                 Device d = devices.next();
-                if (deviceKey.equals(d.getDeviceKey())) 
+                if (getDeviceKey().equals(d.getDeviceKey())) 
                     continue;
-                for (Entity se : d.entities) {
+                for (Entity se : d.getEntities()) {
                     if (se.getIpv4Address() != null &&
                             se.getIpv4Address().equals(e.getIpv4Address()) &&
                             se.getLastSeenTimestamp() != null &&
@@ -698,10 +863,11 @@ public class Device implements IDevice,Serializable{
         return vals.toArray(new Integer[vals.size()]);
     }
 
+    
     @Override
     public Short[] getSwitchPortVlanIds(SwitchPort swp) {
         TreeSet<Short> vals = new TreeSet<Short>();
-        for (Entity e : entities) {
+        for (Entity e : getEntities()) {
             if (e.switchDPID == swp.getSwitchDPID() 
                     && e.switchPort == swp.getPort()) {
                 if (e.getVlan() == null)
@@ -712,11 +878,12 @@ public class Device implements IDevice,Serializable{
         }
         return vals.toArray(new Short[vals.size()]);
     }
-
+    
     @Override
     public Date getLastSeen() {
         Date d = null;
-        for (int i = 0; i < entities.length; i++) {
+        Entity[] entities = getEntities(); 
+        for (int i = 0, len = entities.length; i < len; i++) {
             if (d == null ||
                     entities[i].getLastSeenTimestamp().compareTo(d) > 0)
                 d = entities[i].getLastSeenTimestamp();
@@ -728,18 +895,35 @@ public class Device implements IDevice,Serializable{
     // Getters/Setters
     // ***************
 
+    
+    @Column
     @Override
     public IEntityClass getEntityClass() {
-        return entityClass;
+        return Device.entitiesClasses.get(entityClass);
     }
 
+    public void setEntityClass(IEntityClass clazz){
+    	entityClass = clazz.getName();
+    	Device.entitiesClasses.put(entityClass, clazz);
+    }
+    
+    @Column
     public Entity[] getEntities() {
         return entities;
     }
-
-    public String getDHCPClientName() {
-        return dhcpClientName;
+    
+    public void setEntities(Entity[] entities){
+    	this.entities = entities;  
     }
+    
+    public Entity getEntity(int index){
+    	return entities[index];
+    }
+    
+    public void setEntity(Entity e, int index){
+    	this.entities[index] = e;
+    }
+    
 
     // ***************
     // Utility Methods
@@ -772,8 +956,8 @@ public class Device implements IDevice,Serializable{
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
         Device other = (Device) obj;
-        if (!deviceKey.equals(other.deviceKey)) return false;
-        if (!Arrays.equals(entities, other.entities)) return false;
+        if (!getDeviceKey().equals(other.getDeviceKey())) return false;
+        if (!Arrays.equals(getEntities(), other.getEntities())) return false;
         return true;
     }
     public static int v =0; 
@@ -782,11 +966,11 @@ public class Device implements IDevice,Serializable{
     public String toString() {
         StringBuilder builder = new StringBuilder();
         builder.append("Device [deviceKey=");
-        builder.append(deviceKey);
+        builder.append(getDeviceKey());
         builder.append(", entityClass=");
-        builder.append(entityClass.getName());
+        builder.append(getEntityClass());
         builder.append(", MAC=");
-        builder.append(macAddressString);
+        builder.append(getMACAddressString());
         builder.append(", IPs=[");
         boolean isFirst = true;
         
@@ -803,7 +987,7 @@ public class Device implements IDevice,Serializable{
         
         
         builder.append(", Entities = [");
-        Iterator<Entity> it = Lists.newArrayList(this.entities).iterator(); 
+        Iterator<Entity> it = Lists.newArrayList(this.getEntities()).iterator(); 
         while(it.hasNext()){
         	builder.append(it.next());
         	if (it.hasNext()){
@@ -811,10 +995,12 @@ public class Device implements IDevice,Serializable{
         	}
         }
         builder.append("]"); 
-        return builder.toString();
+        //return builder.toString();
+        return deviceKey + ""; 
     }
     
     public Device clone(){
     	return new Device(this); 
     }
+    
 }

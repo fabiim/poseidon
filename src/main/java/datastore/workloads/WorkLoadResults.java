@@ -13,6 +13,9 @@ import java.util.Map.Entry;
 
 import mapserver.RequestType;
 import mapserver.RequestType.SuperType;
+import bonafide.datastore.workloads.ActivityEvent;
+import bonafide.datastore.workloads.EVENT_TYPE;
+import bonafide.datastore.workloads.RequestLogEntry;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;

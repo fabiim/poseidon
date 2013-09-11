@@ -29,8 +29,8 @@ public class ReportGenerator {
 	protected static String outputFolder; 
 	protected static Source rootFile;
 	private static String title;
-	private static String description; 
-
+	private static String description;
+	
 	public static void main(String args	[]) throws IOException{
 		//TODO - check is folder . 
 		switch(args.length){
@@ -38,7 +38,8 @@ public class ReportGenerator {
 				//singularCase(args[1]);
 				//readLogAndCreateReport("./workloads/report/100.known/usedLog.0.1000","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
 				//readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
-				readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/", "100 No arp - Ping between known hosts", "Hosts have static arp tables", 60,10000);			
+				//readLogAndCreateReport("./workloads/logs","./workloads/report/", "100 No arp - Ping between known hosts", "Hosts have static arp tables", 260,10000);			
+				readLogAndCreateReport("./workloads/ewsdn.device.man","./workloads/report/", "100 No arp - Ping between known hosts", "Hosts have static arp tables", 310,10000);			
 				//readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "", 220, 265);
 				//readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/500.base/", "500 Hosts", "", 425, 450);
 				break; 

@@ -108,7 +108,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
      * Time in milliseconds before entities will expire
      */
     protected static final int ENTITY_TIMEOUT = 60*60*1000;
-
+    
     /**
      * Time in seconds between cleaning up old entities/devices
      */
@@ -1538,7 +1538,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
                                                       d.oldAPs,
                                                       d.attachmentPoints,
                                                       toKeep,
-                                                      d.entityClass);
+                                                      d.getEntityClass());
 
                     EnumSet<DeviceField> changedFields =
                             EnumSet.noneOf(DeviceField.class);

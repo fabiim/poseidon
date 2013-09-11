@@ -167,4 +167,11 @@ public class ICMP extends BasePacket {
         this.payload.setParent(this);
         return this;
     }
+
+	@Override
+	public String toString() {
+		return "ICMP [icmpType=" + icmpType + ", icmpCode=" + icmpCode
+				+ ", checksum=" + checksum + "]";
+	}
+    
 }

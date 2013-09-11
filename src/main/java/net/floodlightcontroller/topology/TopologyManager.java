@@ -21,7 +21,6 @@ import static datastore.util.KeySerializationFunctions.LONG_SERIALIZE;
 import static datastore.util.KeySerializationFunctions.NODE_PORT_TUPLE_DESERIALIZE;
 import static datastore.util.KeySerializationFunctions.NODE_PORT_TUPLE_SERIALIZE;
 
-
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.security.MessageDigest;
@@ -75,13 +74,13 @@ import org.openflow.protocol.action.OFActionOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import bonafide.datastore.workloads.ActivityEvent;
 import ch.qos.logback.classic.Level;
 
 import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream;
 
 import datastore.Datastore;
 import datastore.Table;
-import datastore.workloads.ActivityEvent;
 
 
 

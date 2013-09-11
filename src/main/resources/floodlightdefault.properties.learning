@@ -9,7 +9,7 @@ net.floodlightcontroller.perfmon.PktInProcessingTime,\
 net.floodlightcontroller.ui.web.StaticWebRoutable,\
 net.floodlightcontroller.learningswitch.LearningSwitchO
 net.floodlightcontroller.restserver.RestApiServer.port = 8080
-net.floodlightcontroller.core.FloodlightProvider.openflowport = 6633
+net.floodlightcontroller.core.FloodlightProvider.openflowport = 6634
 net.floodlightcontroller.jython.JythonDebugInterface.port = 6655
 net.floodlightcontroller.learningswitch.LearningSwitch.idletimeout = 5
 net.floodlightcontroller.learningswitch.LearningSwitch.hardtimeout = 0

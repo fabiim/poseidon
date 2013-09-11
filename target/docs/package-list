@@ -1,8 +1,4 @@
 datastore
-datastore.bench
-datastore.bench.distributions
-datastore.bench.flowsimulations
-datastore.bench.flowsimulations.deviceManager
 datastore.util
 datastore.workloads
 datastore.workloads.ReportGenerator

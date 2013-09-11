@@ -34,6 +34,8 @@ import org.openflow.util.HexString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Maps;
+
 import net.floodlightcontroller.devicemanager.IDeviceService.DeviceField;
 import net.floodlightcontroller.devicemanager.internal.Entity;
 import net.floodlightcontroller.devicemanager.web.DeviceSerializer;
@@ -51,6 +53,8 @@ import net.floodlightcontroller.topology.ITopologyService;
  */
 @JsonSerialize(using=DeviceSerializer.class)
 public class Device implements IDevice {
+	
+	public static final Map<String, IEntityClass> maps = Maps.newConcurrentMap();
     protected static Logger log =
             LoggerFactory.getLogger(Device.class);
 
@@ -58,15 +62,14 @@ public class Device implements IDevice {
     protected DeviceManagerImpl deviceManager;
 
     protected Entity[] entities;
-    protected IEntityClass entityClass;
+    protected String entityClass;
 
     protected String macAddressString;
     // the vlan Ids from the entities of this device
     protected Short[] vlanIds;
     protected String dhcpClientName;
+    protected long timestamp;
     
-   
-
     /**
      * These are the old attachment points for the device that were
      * valid no more than INACTIVITY_TIME ago.
@@ -96,7 +99,8 @@ public class Device implements IDevice {
         this.entities = new Entity[] {entity};
         this.macAddressString =
                 HexString.toHexString(entity.getMacAddress(), 6);
-        this.entityClass = entityClass;
+        this.entityClass = entityClass.getName();
+        maps.put(this.entityClass, entityClass); 
         Arrays.sort(this.entities);
 
         this.dhcpClientName = null;
@@ -150,7 +154,8 @@ entity.getLastSeenTimestamp().getTime());
         }
         this.macAddressString =
                 HexString.toHexString(this.entities[0].getMacAddress(), 6);
-        this.entityClass = entityClass;
+        this.entityClass = entityClass.getName();
+        maps.put(this.entityClass, entityClass); 
         Arrays.sort(this.entities);
         computeVlandIds();
     }
@@ -649,7 +654,7 @@ entity.getLastSeenTimestamp().getTime());
             // we have the most recent entity with that IP.
             boolean validIP = true;
             Iterator<Device> devices =
-                    deviceManager.queryClassByEntity(entityClass, ipv4Fields, e);
+                    deviceManager.queryClassByEntity(maps.get(this.entityClass), ipv4Fields, e);
             while (devices.hasNext()) {
                 Device d = devices.next();
                 if (deviceKey.equals(d.getDeviceKey())) 
@@ -707,7 +712,7 @@ entity.getLastSeenTimestamp().getTime());
 
     @Override
     public IEntityClass getEntityClass() {
-        return entityClass;
+        return maps.get(entityClass);
     }
 
     public Entity[] getEntities() {
@@ -760,7 +765,7 @@ entity.getLastSeenTimestamp().getTime());
         builder.append("Device [deviceKey=");
         builder.append(deviceKey);
         builder.append(", entityClass=");
-        builder.append(entityClass.getName());
+        builder.append(maps.get(entityClass));
         builder.append(", MAC=");
         builder.append(macAddressString);
         builder.append(", IPs=[");

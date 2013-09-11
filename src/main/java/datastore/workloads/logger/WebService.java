@@ -9,7 +9,7 @@ import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import datastore.workloads.ActivityEvent;
+import bonafide.datastore.workloads.ActivityEvent;
 
 public class WebService implements Runnable{
 		ActivityEvent initNetwork, turnOffLinks, turnOffSwitches,addremoveTest; 

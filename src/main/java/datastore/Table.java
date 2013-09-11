@@ -12,23 +12,52 @@ import java.util.Map.Entry;
 
 import net.floodlightcontroller.devicemanager.internal.Device;
 
-import org.python.google.common.base.Function;
-import org.python.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import bonafide.datastore.workloads.RequestLogEntry;
+
+import com.google.common.base.Function;
+import com.google.common.collect.Maps;
+
 import ch.qos.logback.classic.Level;
-import datastore.workloads.RequestLogEntry;
+
+
+//TODO - There should be a factory producing tables with the same name... Singletons table should go out... 
 
 
 
-public class Table<K extends Serializable ,V extends Serializable> {	
+public class Table<K extends Serializable ,V extends Serializable> {
+	
 	protected final String tableName;
 	protected final Datastore datastore;
+	
+	
 	protected Function<K, byte[]> serializeKeyFoo;
+	protected Function<V, byte[]> serializeValueFoo;
 	protected Function<byte[],K> deserializeKeyFoo; 
+	public Function<V, byte[]> getSerializeValueFoo() {
+		return serializeValueFoo;
+	}
+
+	public void setSerializeValueFoo(Function<V, byte[]> serializeValueFoo) {
+		this.serializeValueFoo = serializeValueFoo;
+	}
+
+	public Function<byte[], V> getDeserializeValueFoo() {
+		return deserializeValueFoo;
+	}
+
+	public void setDeserializeValueFoo(Function<byte[], V> deserializeValueFoo) {
+		this.deserializeValueFoo = deserializeValueFoo;
+	}
+
+
+	protected Function<byte[],V> deserializeValueFoo;
+	
 	protected static Logger log = LoggerFactory.getLogger(Table.class);
 	//protected static Logger log = LoggerFactory.getLogger("");
+	
 	
 	public byte[] serializeO(Object obj) throws IOException {
         ByteArrayOutputStream b = new ByteArrayOutputStream();
@@ -40,23 +69,39 @@ public class Table<K extends Serializable ,V extends Serializable> {
     public  Object deserializeO(byte[] bytes) throws IOException, ClassNotFoundException {
         ByteArrayInputStream b = new ByteArrayInputStream(bytes);
         ObjectInputStream o = new ObjectInputStream(b);
-        return o.readObject();
+        return o.readObject();		
     }
 
 	
 	public Table(Datastore ds, String tableName, Function<byte[],K> deserialize, Function<K,byte[]> serialize){
-		
 		this.tableName = tableName;
 		this.datastore = ds;
-		
 		this.serializeKeyFoo = serialize == null ? defaultSerializeKey : serialize;
-		
 		this.deserializeKeyFoo = deserialize == null ?  defaultDeserializeKey : deserialize; 
+		//TODO - add to constructor 
+		this.serializeValueFoo = defaultSerializeValue; 
+		this.deserializeValueFoo = defaultDeserializeValue; 
 	}
-
 	
-	protected Function<K,byte[]> defaultSerializeKey = new Function< K, byte[]>(){
-		
+	
+	//////////////TODO For god sake , clean this up dude!  
+	////////////TODO  For starters, defaults, should be initialzied with no attributes. Just initialize them. It is a bit verbose, but fuck that... 
+	////////////TODO 
+	//	//////////TODO 
+	protected Function<V,byte[]> defaultSerializeValue = new Function< V, byte[]>(){	
+		@Override 
+		public byte[] apply(V v){
+			try {
+				return serializeO(v);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} 
+			return null; 
+		}
+	}; 
+	
+	protected Function<K,byte[]> defaultSerializeKey = new Function< K, byte[]>(){	
 		@Override 
 		public byte[] apply(K k){
 			try {
@@ -68,6 +113,24 @@ public class Table<K extends Serializable ,V extends Serializable> {
 			return null; 
 		}
 	};
+
+	protected Function<byte[],V> defaultDeserializeValue = new Function<byte[],V>(){
+		@Override 
+		public V apply(byte[] v){
+			try {
+				return (V) deserializeO(v);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} 
+			return null; 
+		}
+	};
+	
+	
 	protected Function<byte[],K> defaultDeserializeKey = new Function<byte[],K>(){
 		@Override 
 		public K apply(byte[] v){
@@ -132,9 +195,7 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		//log.info("Request for value: " + key + " at table: " + tableName + " result: " + val);
 		return val; 
 	}
-
-
-
+		
 	public boolean isEmpty() {
 		return datastore.isEmpty(tableName, new RequestLogEntry(tableName));
 	}
@@ -216,28 +277,14 @@ public class Table<K extends Serializable ,V extends Serializable> {
 	@SuppressWarnings("unchecked")
 	protected V deserialize(byte [] v){
 		if (v == null ) return null; 
-		try {
-			return (V) deserializeO(v);
-		} catch (IOException e) { //FIXME 
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			e.printStackTrace(); 
-		}
-		return null; 
+		return this.deserializeValueFoo.apply(v);
 	}
-	
 	
 	protected byte[] serialize(V value){
 		//TODO: how about null values?
-			try {
-				return serializeO(value);
-			} catch (IOException e) {
 
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+		return this.serializeValueFoo.apply(value); 
 
-		return null; // FIXME 
 	}
 
 	protected byte[] serializeKey(K val){
@@ -256,7 +303,8 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		}
 		return result;
 	}
-
+	
+	
 	public void test(V oldDevice, V device, String s) {
 		if (!Arrays.equals(serialize(oldDevice), serialize(device))){
 			System.out.println(s);
@@ -265,9 +313,6 @@ public class Table<K extends Serializable ,V extends Serializable> {
 		}
 		
 	}
-
-	
-	
 	
 		// Others //
 }

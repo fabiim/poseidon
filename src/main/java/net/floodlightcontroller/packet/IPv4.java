@@ -56,7 +56,8 @@ public class IPv4 extends BasePacket {
     protected int sourceAddress;
     protected int destinationAddress;
     protected byte[] options;
-
+ 
+    
     protected boolean isTruncated;
 
     /**

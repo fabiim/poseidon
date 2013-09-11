@@ -9,14 +9,15 @@ import mapserver.RequestType;
 import org.apache.commons.math3.stat.Frequency;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
+import bonafide.datastore.workloads.EVENT_TYPE;
+import bonafide.datastore.workloads.RequestLogEntry;
+
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
-import datastore.workloads.EVENT_TYPE;
-import datastore.workloads.RequestLogEntry;
 import datastore.workloads.WorkLoadResults;
 
 

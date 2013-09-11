@@ -21,6 +21,9 @@ import net.floodlightcontroller.core.module.FloodlightModuleException;
 
 import org.python.google.common.collect.Lists;
 
+import bonafide.datastore.workloads.ActivityEvent;
+import bonafide.datastore.workloads.RequestLogEntry;
+
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.ChannelSftp;

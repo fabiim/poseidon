@@ -24,6 +24,10 @@ import java.util.Iterator;
 import java.util.Map;
 
 import net.floodlightcontroller.devicemanager.IDeviceService.DeviceField;
+import bonafide.datastore.ColumnProxy;
+import bonafide.datastore.tables.AnnotatedColumnObject;
+import bonafide.datastore.tables.ColumnTable_;
+import bonafide.datastore.util.JavaSerializer;
 
 import com.google.common.collect.Maps;
 
@@ -34,7 +38,7 @@ import datastore.Table;
  * An index that maps key fields of an entity uniquely to a device key
  */
 public class DeviceUniqueIndex {
-    
+	
 	/**
 	 * 
 	 */
@@ -44,7 +48,7 @@ public class DeviceUniqueIndex {
      * The index
      */
     //private ConcurrentHashMap<IndexedEntity, Long> index;
-    private Table<IndexedEntity, Device> index; 
+    private ColumnTable_<IndexedEntity, Device> index; 
     
     /**
      * Construct a new device index using the provided key fields
@@ -52,23 +56,29 @@ public class DeviceUniqueIndex {
      */
     public DeviceUniqueIndex(EnumSet<DeviceField> keyFields, Datastore ds) {
         this.keyFields = keyFields; 
-        Table<String,String> table = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null	,null); 
-        //TODO - initialization of counters
-        String tableId;
-        for (tableId =  table.get("DEVICE_UNIQUE_INDEX_COUNTER") ; table.replace("DEVICE_UNIQUE_INDEX_COUNTER", tableId,	tableId+1); tableId = (Long.decode(tableId)+ 1) + ""  ){
-        	continue; 
-        }
-        index = ds.getTable("DEVICE_UNIQUE_INDEX_" + tableId, datastore.util.KeySerializationFunctions.INDEXED_ENTITY_DESERIALIZE	, datastore.util.KeySerializationFunctions.INDEXED_ENTITY_SERIALIZE);
-        
-        
+        index = ColumnTable_.getTable(
+        		new ColumnProxy((int) Thread.currentThread().getId())
+        		, "DEVICE_UNIQUE_INDEX" + getControllerID(),  
+        		IndexedEntity.SERIALIZER, 
+        		AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
     }
-
+    
+    
+    
     // ***********
     // DeviceIndex
     // ***********
 
     
-    public Iterator<Device> queryByEntity(Entity entity) {
+    /**
+	 * @return
+	 */
+	private String getControllerID() {
+		//FIXME: 
+		return  "CURRENT_CONTROLLER"; 
+	}
+
+	public Iterator<Device> queryByEntity(Entity entity) {
         final Device deviceKey = findByEntity(entity);
         if (deviceKey != null)
             return Collections.<Device>singleton(deviceKey).iterator();
@@ -78,7 +88,7 @@ public class DeviceUniqueIndex {
     
     
     public Iterator<Device> getAll() {
-        return index.getAll().values().iterator();
+    	return index.values().iterator(); 
     }
     
     private Map<IndexedEntity, Boolean> semiBloom = Maps.newHashMap(); 
@@ -89,7 +99,7 @@ public class DeviceUniqueIndex {
     	//TODO - bloom filter here.
     	//TODO - effects of non consistency entities? Quite sure no one ever deletes entities except in deleteDevice and cleanUp 
     	
-        for (Entity e : device.entities) {
+        for (Entity e : device.getEntities()) {
             IndexedEntity ie = new IndexedEntity(keyFields, e);
             if (!ie.hasNonNullKeys() || semiBloom.containsKey(ie)) continue;
             semiBloom.put(ie, true);
@@ -151,9 +161,9 @@ public class DeviceUniqueIndex {
     	boolean changed = false;
     	Iterator<Device> keyiter = this.queryByEntity(entity);
     	while (keyiter.hasNext()) {
-    		Long key = keyiter.next().deviceKey;
+    		Long key = keyiter.next().getDeviceKey();
     		
-    		if (key.equals(device.deviceKey)) {
+    		if (key.equals(device.getDeviceKey())) {
     			removeEntity(entity, device);
     			changed = true; 
     			break;

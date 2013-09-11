@@ -11,8 +11,8 @@ import java.util.Queue;
 
 import org.python.google.common.collect.Lists;
 
-import datastore.workloads.ActivityEvent;
-import datastore.workloads.RequestLogEntry;
+import bonafide.datastore.workloads.ActivityEvent;
+import bonafide.datastore.workloads.RequestLogEntry;
 
 public class RequestLogger {
 	public static final String SERIALIZED = ".objects";
