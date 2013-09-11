@@ -25,13 +25,18 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.google.common.collect.Sets;
-
 import net.floodlightcontroller.devicemanager.IDeviceService.DeviceField;
 import net.floodlightcontroller.util.IterableIterator;
+import bonafide.datastore.ColumnProxy;
+import bonafide.datastore.KeyValueProxy;
+import bonafide.datastore.tables.AnnotatedColumnObject;
+import bonafide.datastore.tables.KeyValueTable_;
+import bonafide.datastore.util.JavaSerializer;
+
+import com.google.common.collect.Sets;
+
 import datastore.Datastore;
 import datastore.Table;
-import datastore.util.KeySerializationFunctions;
 
 /**
  * An index that maps key fields of an entity to device keys, with multiple
@@ -45,7 +50,7 @@ public class DeviceMultiIndex extends DeviceIndex {
 	/**
      * The index
      */
-    private Table<IndexedEntity, HashSet<Long>> index;
+    private KeyValueTable_<IndexedEntity, HashSet<Long>> index;
 
     /**
      * @param keyFields
@@ -53,21 +58,25 @@ public class DeviceMultiIndex extends DeviceIndex {
     
     public DeviceMultiIndex(EnumSet<DeviceField> keyFields, Datastore ds) {
         super(keyFields);
-        
-        Table<String,String> table = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, datastore.util.KeySerializationFunctions.STRING_DESERIALIZE	,datastore.util.KeySerializationFunctions.STRING_SERIALIZE); 
-        //TODO - initialization of counters
-        String tableId;
-        /*for (tableId =  table.get("DEVICE_MULTI_INDEX_COUNTER") ; table.replace("DEVICE_MULTI_INDEX_COUNTER", tableId,	tableId+1); tableId = (Long.decode(tableId)+ 1) + ""){
-        	continue; 
-        }*/
-        index = ds.getTable("DEVICE_MULTI_INDEX_" , KeySerializationFunctions.INDEXED_ENTITY_DESERIALIZE		, KeySerializationFunctions.INDEXED_ENTITY_SERIALIZE);
+        index = KeyValueTable_.getTable(
+        		new KeyValueProxy((int) Thread.currentThread().getId())
+        		, "DEVICE_MULTI_INDEX_" + getControllerID(),  
+        		IndexedEntity.SERIALIZER, 
+        		JavaSerializer.<HashSet<Long>>getJavaSerializer()); 
     }
 
     // ***********
     // DeviceIndex
     // ***********
 
-    @Override
+    /**
+	 * @return
+	 */
+	private String getControllerID() {
+		return "Id"; 
+	}
+
+	@Override
     public Iterator<Long> queryByEntity(Entity entity) {
         IndexedEntity ie = new IndexedEntity(keyFields, entity);
         Collection<Long> devices = index.get(ie);
@@ -79,13 +88,13 @@ public class DeviceMultiIndex extends DeviceIndex {
     
     @Override
     public Iterator<Long> getAll() {
-        Iterator<HashSet<Long>> iter = index.getAll().values().iterator();
+        Iterator<HashSet<Long>> iter = index.values().iterator();
         return new IterableIterator<Long>(iter);
     }
     
     @Override
     public boolean updateIndex(Device device, Long deviceKey) {
-        for (Entity e : device.entities) {
+        for (Entity e : device.getEntities()) {
             updateIndex(e, deviceKey);
         }
         return true;

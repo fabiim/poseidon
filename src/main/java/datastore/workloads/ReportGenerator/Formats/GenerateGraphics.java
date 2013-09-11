@@ -27,11 +27,12 @@ import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.ui.RectangleEdge;
 
+import bonafide.datastore.workloads.ActivityEvent;
+import bonafide.datastore.workloads.RequestLogEntry;
+
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 
-import datastore.workloads.ActivityEvent;
-import datastore.workloads.RequestLogEntry;
 import datastore.workloads.WorkLoadResults;
 import datastore.workloads.ReportGenerator.Stats;
 import datastore.workloads.ReportGenerator.StatsCreator;
@@ -77,10 +78,10 @@ public static JFreeChart createReadWriteThroughPut(WorkLoadResults wr, boolean w
             true,
             false
         );
+        
         long timeStartReference = wr.getTimeZero();
 		XYPlot plot = (XYPlot) chart.getPlot();
-  		
-        
+		
         //Set events :
     		for (ActivityEvent e : wr.getActivityLog()){
       			switch(e.getType()){

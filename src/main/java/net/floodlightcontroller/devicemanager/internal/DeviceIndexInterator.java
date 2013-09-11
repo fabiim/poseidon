@@ -48,7 +48,7 @@ public class DeviceIndexInterator implements Iterator<Device> {
     @Override
     public Device next() {
         Long next = subIterator.next();
-        return deviceManager.deviceMap.get(next,false);
+        return deviceManager.deviceMap.get(next);
     }
 
     @Override

@@ -16,14 +16,14 @@ import net.floodlightcontroller.topology.TopologyManager;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.PropertiesConfiguration;
-import org.python.google.common.base.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ch.qos.logback.classic.Level;
+import com.google.common.base.Function;
 
+import ch.qos.logback.classic.Level;
 import bftsmart.tom.ServiceProxy;
-import datastore.workloads.RequestLogEntry;
+import bonafide.datastore.workloads.RequestLogEntry;
 import datastore.workloads.logger.RequestLogger;
 
 /**
@@ -31,9 +31,8 @@ import datastore.workloads.logger.RequestLogger;
  *
  */
 
-public class Datastore{
+public class Datastore implements DataStoreInterface{
 
-	public static final String DEVICE_MANAGER_LAST_COUNTER = "DEVICE_MANAGER_LAST_COUNTER"; 
 	public static void initDatastoreFromController(Datastore ds){
 		Table<String, Long>  t = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, datastore.util.KeySerializationFunctions.STRING_DESERIALIZE	, datastore.util.KeySerializationFunctions.STRING_SERIALIZE); 
 		
@@ -45,21 +44,28 @@ public class Datastore{
 		Table<String,String>  t2 = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, null, null); 
 		t2.put("DEVICE_UNIQUE_INDEX_COUNTER", "0");
 		t2.put("DEVICE_MULTI_INDEX_COUNTER", "0"); 
-		//TODO - several copies of the datastore locally (é preciso aproveitar as threads) . 
-		//TODO - cada uma das aplicações inicializa as cenas .
+		//TODO - several copies of the datastore locally (ÔøΩ preciso aproveitar as threads) . 
+		//TODO - cada uma das aplicaÔøΩÔøΩes inicializa as cenas .
 		
 	}
 
 	
-	public static final String CONTROLLERS_SYSTEM_INFO = "CONTROL_SYSTEM_INFO";
 	protected static Logger log = LoggerFactory.getLogger(TopologyManager.class);
 
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#serialize(java.lang.Object)
+	 */
 	public byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         ObjectOutputStream o = new ObjectOutputStream(b);
         o.writeObject(obj);
         return b.toByteArray();
     }
+	
+	
+    /* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#deserialize(byte[])
+	 */
 	
     public  Object deserialize(byte[] bytes) throws IOException, ClassNotFoundException {
         ByteArrayInputStream b = new ByteArrayInputStream(bytes);
@@ -72,7 +78,6 @@ public class Datastore{
 	protected Configuration config; 
 
 	public static int clientId=0;
-
 	
 	public Datastore() { 
 		((ch.qos.logback.classic.Logger) log).setLevel(Level.ERROR); 
@@ -93,10 +98,13 @@ public class Datastore{
 	 }
 	
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#getBenchManager()
+	 */
 	public RequestLogger getBenchManager(){ return benchManager; }
 	
 	// Correct me .
-	public <K extends Serializable,A extends Serializable> Table<K,A> getTable(String tableName, Function<byte[],K> deserialize, Function<K,byte[]> serialize){
+	public <K extends Serializable,A extends Serializable> TableInterface<K, A> getTable(String tableName, Function<byte[],K> deserialize, Function<K,byte[]> serialize){
 		boolean created = true; 
 		if (!this.containsTable(tableName,new RequestLogEntry(tableName))){ 
 			created =this.createTable(tableName, new RequestLogEntry(tableName));
@@ -106,7 +114,7 @@ public class Datastore{
 	}
 	
 
-	public  <K extends Serializable,A extends Serializable> Table<K, A> getTableL(String tableName,
+	public  <K extends Serializable,A extends Serializable> TableInterface<K, A> getTableL(String tableName,
 			Function<byte[], K> deserialize,
 			Function<K, byte[]> serialize) {
 		boolean created = true; 
@@ -114,7 +122,7 @@ public class Datastore{
 			created =this.createTable(tableName, new RequestLogEntry(tableName));
 			log.info("creating a table: " + tableName + " Result : " + created);
 		}
-		return created ? new TableLearningSwitch<K,A>(this, tableName, deserialize,serialize): null;   
+		return created ? new TableWithCache<K,A>(this, tableName, deserialize,serialize): null;   
 	
 	}
 
@@ -125,11 +133,9 @@ public class Datastore{
 	  * Functions who do not address specific tables.
 	  */
 	
-	 /**
-	  * Create a table in the datastore. 
-	  * @param tableName
-	  * @return false if table exists.  
-	  */
+	 /* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#createTable(java.lang.String, datastore.workloads.RequestLogEntry)
+	 */
 	 public boolean createTable(String tableName, RequestLogEntry r){
 		 RequestType type = RequestType.CREATE_TABLE;  
 		 ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -150,7 +156,10 @@ public class Datastore{
 		 }
 	 }
 	 
-	 public boolean createTable(String tableName, int maxSize, RequestLogEntry r){
+	 /* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#createTable(java.lang.String, int, datastore.workloads.RequestLogEntry)
+	 */
+	public boolean createTable(String tableName, int maxSize, RequestLogEntry r){
 		 RequestType type = RequestType.CREATE_TABLE_MAX_SIZE;  
 		 ByteArrayOutputStream out = new ByteArrayOutputStream(); 
 		 DataOutputStream dout = new DataOutputStream(out);
@@ -169,11 +178,9 @@ public class Datastore{
 		 }
 	 }
 	 
-	 /**
-	  * 
-	  * @param tableName
-	  * @return false if table does not exists, or server communication has not completed correctly. 
-	  */
+	 /* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#removeTable(java.lang.String, datastore.workloads.RequestLogEntry)
+	 */
 	 public boolean removeTable(String tableName, RequestLogEntry r){
 		 log.info("Removing table: " + tableName);
 		 try{
@@ -199,11 +206,9 @@ public class Datastore{
 		 }
 	 }
 	 
-	 /**
-	  * Check if the datastore contains a table
-	  * @param tableName The name of the table. 
-	  * @return 
-	  */
+	 /* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#containsTable(java.lang.String, datastore.workloads.RequestLogEntry)
+	 */
 	 public boolean containsTable(String tableName, RequestLogEntry r){
 		 RequestType type = RequestType.CONTAINS_TABLE; 
 		 ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -223,7 +228,10 @@ public class Datastore{
 		 }
 	 }
 	 
-	 public void clear(RequestLogEntry r) {
+	 /* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#clear(datastore.workloads.RequestLogEntry)
+	 */
+	public void clear(RequestLogEntry r) {
 		 RequestType type = RequestType.CLEAR_DATASTORE; 
 			ByteArrayOutputStream out = new ByteArrayOutputStream(); 
 			DataOutputStream dos = new DataOutputStream(out);
@@ -244,9 +252,8 @@ public class Datastore{
 	  * Clear all database, including tables names. 
 	  */
 	
-	/**
-	 * Clear a specified table. 
-	 * @param table The table to be cleared. 
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#clear(java.lang.String, datastore.workloads.RequestLogEntry)
 	 */
 	public void clear(String table, RequestLogEntry r){
 		RequestType type = RequestType.CLEAR_TABLE; 
@@ -264,12 +271,8 @@ public class Datastore{
 		} 
 	}
 	
-	/**
-	 * Check if a table contains a key. 
-	 * @param table
-	 * @param key
-	 * @param requestLogEntry 
-	 * @return
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#containsKey(java.lang.String, byte[], datastore.workloads.RequestLogEntry)
 	 */
 	public boolean containsKey(String table, byte[] key, RequestLogEntry requestLogEntry) {
 		RequestType type = RequestType.CONTAINS_KEY_IN_TABLE; 
@@ -289,6 +292,9 @@ public class Datastore{
 		} 
 	}
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#getAll(java.lang.String, datastore.workloads.RequestLogEntry)
+	 */
 	@SuppressWarnings("unchecked")
 	public Map<byte[],byte[]> getAll(String table, RequestLogEntry r){
 		RequestType type = RequestType.GET_TABLE;
@@ -315,6 +321,9 @@ public class Datastore{
 		}
 	}
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#get(java.lang.String, byte[], datastore.workloads.RequestLogEntry)
+	 */
 	@SuppressWarnings("unchecked")
 	public byte[] get(String table, byte[] key, RequestLogEntry r) {
 		RequestType type = RequestType.GET_VALUE_IN_TABLE; 
@@ -334,6 +343,9 @@ public class Datastore{
 		}
 	}
 
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#isEmpty(datastore.workloads.RequestLogEntry)
+	 */
 	public boolean isEmpty(RequestLogEntry r) {
 		RequestType type = RequestType.IS_DATASTORE_EMPTY; 
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -348,6 +360,9 @@ public class Datastore{
 		} 
 	}
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#isEmpty(java.lang.String, datastore.workloads.RequestLogEntry)
+	 */
 	public boolean isEmpty(String table, RequestLogEntry r){
 		RequestType type = RequestType.IS_TABLE_EMPTY; 
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -364,17 +379,24 @@ public class Datastore{
 		} 
 	}
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#put(java.lang.String, byte[], byte[], datastore.workloads.RequestLogEntry)
+	 */
+	
+	//TODO - return existent value. 
 	public boolean put(String table, byte[] key, byte[] value, RequestLogEntry r) {
 		RequestType type = RequestType.PUT_VALUE_IN_TABLE; 
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
 		DataOutputStream dos = new DataOutputStream(out);
 		
 		try {
+			
 			dos.writeInt(type.ordinal());
 			dos.writeUTF(table); 
 			dos.writeInt(key.length); 
 			dos.write(key);
 			dos.write(value);
+			System.out.println( "Sizes: value - " + value.length  +  "key - " + key.length);
 			byte[] reply = invokeRequestOrdered(out,dos, type, r);
 			return reply != null;
 		} catch (IOException e) {
@@ -384,6 +406,9 @@ public class Datastore{
 	}
 	
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#replace(java.lang.String, byte[], byte[], byte[], datastore.workloads.RequestLogEntry)
+	 */
 	public boolean replace(String tableName, byte[] key,
 			byte[] oldValue, byte[] newValue, RequestLogEntry r) {
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -404,6 +429,9 @@ public class Datastore{
 		return false; 
 	}
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#remove(java.lang.String, byte[], byte[], datastore.workloads.RequestLogEntry)
+	 */
 	public boolean remove(String tableName, byte[] key, byte[] val, RequestLogEntry r) {
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
 		DataOutputStream dos = new DataOutputStream(out);
@@ -421,6 +449,9 @@ public class Datastore{
 		return false; 
 	}
 
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#putAll(java.lang.String, java.util.Map, datastore.workloads.RequestLogEntry)
+	 */
 	public void putAll(String table, Map<? extends byte[], ? extends byte[]> m, RequestLogEntry r) {
 		RequestType type = RequestType.PUT_VALUES_IN_TABLE; 
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -436,6 +467,9 @@ public class Datastore{
 		} 
 	}
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#remove(java.lang.String, byte[], datastore.workloads.RequestLogEntry)
+	 */
 	public byte[] remove(String table, byte[] key, RequestLogEntry r) {
 		RequestType type = RequestType.REMOVE_VALUE_FROM_TABLE; 
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -453,6 +487,9 @@ public class Datastore{
 		} 
 	}
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#putIfAbsent(java.lang.String, byte[], byte[], datastore.workloads.RequestLogEntry)
+	 */
 	public byte[] putIfAbsent(String tableName, byte[] key , byte[] val, RequestLogEntry r) {
 		RequestType type = RequestType.ATOMIC_PUT_IF_ABSENT; 
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -472,6 +509,9 @@ public class Datastore{
 	
 	}
 
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#getAndIncrement(java.lang.String, byte[], datastore.workloads.RequestLogEntry)
+	 */
 	public byte[] getAndIncrement(String tableName,
 			byte[] key, RequestLogEntry r) {
 		RequestType type = RequestType.GET_AND_INCREMENT; 
@@ -492,6 +532,9 @@ public class Datastore{
 	}
 
 	
+	/* (non-Javadoc)
+	 * @see datastore.DataStoreInterface#size(java.lang.String, datastore.workloads.RequestLogEntry)
+	 */
 	public int size(String table, RequestLogEntry r) {
 		RequestType type = RequestType.SIZE_OF_TABLE; 
 		ByteArrayOutputStream out = new ByteArrayOutputStream(); 
@@ -542,7 +585,7 @@ public class Datastore{
 		stop(r,reply != null ? reply.length : 0); //Benchmarking 
 		return reply;
 	}
-
+		
 	/**
 	 * @param out
 	 * @param t
@@ -553,6 +596,7 @@ public class Datastore{
 		r.setType(t); 
 		r.setTimeStarted(System.currentTimeMillis());
 		r.setSizeOfRequest(out.size());
+		System.out.println(" FINAL   - Total size: " + out.size());
 	}
 
 

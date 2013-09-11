@@ -68,13 +68,14 @@ import org.openflow.util.LRULinkedHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import bonafide.datastore.workloads.ActivityEvent;
+
 import com.google.common.collect.Maps;
 
 import datastore.Datastore;
 import datastore.Table;
 import datastore.util.KeySerializationFunctions;
-import datastore.workloads.ActivityEvent;
-
+import datastore.TableWithCache;
 public class LearningSwitchO 
     implements IFloodlightModule, ILearningSwitchServiceO, IOFMessageListener {
     protected static Logger log = LoggerFactory.getLogger(LearningSwitchO.class);
@@ -88,7 +89,8 @@ public class LearningSwitchO
    // protected Map<IOFSwitch, Map<MacVlanPair,Short>> macVlanToSwitchPortMap;
 
     protected Datastore datastore; 
-    protected Map<String, Table>  tables = Maps.newHashMap(); 
+    protected Map<String, TableWithCache<String,Short>>  tables = Maps.newHashMap();
+    
     // flow-mod - for use in the cookie
     public static final int LEARNING_SWITCH_APP_ID = 1;
     // LOOK! This should probably go in some class that encapsulates
@@ -106,7 +108,7 @@ public class LearningSwitchO
     protected static final int MAX_MACS_PER_SWITCH  = 1000;    
 
     // normally, setup reverse flow as well. Disable only for using cbench for comparison with NOX etc.
-    protected static final boolean LEARNING_SWITCH_REVERSE_FLOW = false;
+    protected static final boolean LEARNING_SWITCH_REVERSE_FLOW = true;
     
     /**
      * @param floodlightProvider the floodlightProvider to set
@@ -119,7 +121,6 @@ public class LearningSwitchO
     public String getName() {
         return "learningswitch";
     }
-
     /**
      * Adds a host to the MAC/VLAN->SwitchPort mapping
      * @param sw The switch to add the mapping to
@@ -129,29 +130,35 @@ public class LearningSwitchO
      */
     protected void addToPortMap(IOFSwitch sw, long mac, short vlan, short portVal) {
         //Map<MacVlanPair,Short> swMap = macVlanToSwitchPortMap.get(sw);
-
     	if (vlan == (short) 0xffff) {
             // OFMatch.loadFromPacket sets VLAN ID to 0xffff if the packet contains no VLAN tag;
             // for our purposes that is equivalent to the default VLAN ID 0
             vlan = 0;
         }
-    	
-    	Table<String,Short> stable; 
+    	TableWithCache<String,Short> stable; 
     	stable = getTable(sw);
-    	stable.put( mac + ":" + vlan, portVal);
+    	String k = mac + ":" + vlan;
+    	Short port = stable.getCached(k);
+    	//TODO check if this is possible. Optimize.
+    	
+    	if (port != null && port != portVal){
+    		stable.put( k, portVal);
+    	}
     }
-
+    
 	/**
 	 * @param sw
 	 * @return
 	 */
-	private Table<String, Short> getTable(IOFSwitch sw) {
-		Table<String, Short> stable;
+	private TableWithCache<String, Short> getTable(IOFSwitch sw) {
+		TableWithCache<String, Short> stable;
 		if (tables.containsKey(sw.getStringId())){
     		stable = tables.get(sw.getStringId()); 
     	}
     	else{
-    		stable = datastore.getTableL(sw.getStringId(),  KeySerializationFunctions.STRING_DESERIALIZE ,KeySerializationFunctions.STRING_SERIALIZE);
+    		stable =  (TableWithCache) datastore.getTableL(sw.getStringId(),  KeySerializationFunctions.STRING_DESERIALIZE ,KeySerializationFunctions.STRING_SERIALIZE);
+    		stable.setSerializeValueFoo(KeySerializationFunctions.SHORT_SERIALIZE); 
+    		stable.setDeserializeValueFoo(KeySerializationFunctions.SHORT_DESERIALIZE); 
     		tables.put(sw.getStringId(), stable); 
     	}
 		return stable;
@@ -167,6 +174,7 @@ public class LearningSwitchO
         if (vlan == (short) 0xffff) {
             vlan = 0;
         }
+        
         Table<String, Short> table = getTable(sw);
         table.remove(mac +":" +vlan); 
     }
@@ -178,13 +186,12 @@ public class LearningSwitchO
      * @param vlan The VLAN number to get
      * @return The port the host is on
      */
+    
     public Short getFromPortMap(IOFSwitch sw, long mac, short vlan) {
         if (vlan == (short) 0xffff) {
             vlan = 0;
         }
-        
-        return getTable(sw).get( mac + ":" + vlan);
-        
+        return getTable(sw).get( mac + ":" + vlan, Long.MAX_VALUE);
     }
     
     /**
@@ -193,7 +200,6 @@ public class LearningSwitchO
      */
     public void clearLearnedTable(IOFSwitch sw) {
     	getTable(sw).clear(); 
-        
     }
     
     @Override
@@ -416,11 +422,13 @@ public class LearningSwitchO
             log.trace("{} flow entry removed {}", sw, flowRemovedMessage);
         }
         OFMatch match = flowRemovedMessage.getMatch();
+        
         // When a flow entry expires, it means the device with the matching source
         // MAC address and VLAN either stopped sending packets or moved to a different
         // port.  If the device moved, we can't know where it went until it sends
-        // another packet, allowing us to re-learn its port.  Meanwhile we remove
+        // another packet, allowing us to re-learn its port.  Meanwhile we remove        
         // it from the macVlanToPortMap to revert to flooding packets to this device.
+        
         this.removeFromPortMap(sw, Ethernet.toLong(match.getDataLayerSource()),
             match.getDataLayerVirtualLan());
         

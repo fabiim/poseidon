@@ -2,9 +2,9 @@ package datastore.workloads.ReportGenerator.htmlElements;
 
 import java.util.Iterator;
 
-import datastore.workloads.ActivityEvent;
-import datastore.workloads.EVENT_TYPE;
-import datastore.workloads.RequestLogEntry;
+import bonafide.datastore.workloads.ActivityEvent;
+import bonafide.datastore.workloads.EVENT_TYPE;
+import bonafide.datastore.workloads.RequestLogEntry;
 import datastore.workloads.WorkLoadResults;
 
 public class ListOperations extends SourceElement{
@@ -86,7 +86,8 @@ public class ListOperations extends SourceElement{
 	}
 
 	private boolean accept(String string) {
-		return //string.matches("net.floodlightcontroller.devicemanager.internal.*") ||  
-				(string.matches("net.floodlightcontroller.*") && !string.matches("net.floodlightcontroller.core.*")); 
+		return true; 
+		//return //string.matches("net.floodlightcontroller.devicemanager.internal.*") ||  
+				//(string.matches("net.floodlightcontroller.*") && !string.matches("net.floodlightcontroller.core.*")); 
 	}
 }

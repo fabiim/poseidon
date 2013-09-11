@@ -42,7 +42,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import javatests.Foo;
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.IFloodlightProviderService.Role;
@@ -89,13 +88,16 @@ import org.openflow.protocol.OFType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
+import bonafide.datastore.ColumnProxy;
+import bonafide.datastore.tables.AnnotatedColumnObject;
+import bonafide.datastore.tables.ColumnTable_;
+import bonafide.datastore.util.Serializer;
+import bonafide.datastore.workloads.ActivityEvent;
+
 import com.google.common.collect.Maps;
 
 import datastore.Datastore;
 import datastore.Table;
-import datastore.workloads.ActivityEvent;
-
 /**
  * DeviceManager creates Devices based upon MAC addresses seen in the network.
  * It tracks any network addresses mapped to the Device, and its location
@@ -103,11 +105,15 @@ import datastore.workloads.ActivityEvent;
  * @author readams
  */
 
-
 public class DeviceManagerImpl implements
 IDeviceService, IOFMessageListener, ITopologyListener,
 IFloodlightModule, IEntityClassListener,
 IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
+	
+	
+	//FIXME: Device Manager and device mac,vlan and ip point to different devices. Modifications in one, will be reflected in others...
+	
+	
 	/**
 	 * 
 	 */
@@ -141,14 +147,12 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      * objects.
      */
     //protected ConcurrentHashMap<Long, Device> deviceMap;
-    Table<Long, Device> deviceMap;  
+    ColumnTable_<Long, Device> deviceMap;
+    
     /**
      * Counter used to generate device keys
      */
     
-    //protected long deviceKeyCounter = 0
-    Table<String,Long> controllersTable;
-        
     /**
      * Lock for incrementing the device key counter
      */
@@ -368,7 +372,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
     @Override
     public Collection<? extends IDevice> getAllDevices() {
     	//TODO - values() 
-        return Collections.unmodifiableCollection(deviceMap.getAll().values());
+        return Collections.unmodifiableCollection(deviceMap.values());
     }
 
     @Override
@@ -401,7 +405,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         Iterator<Device> deviceIterator = null;
         if (index == null) {
             // Do a full table scan
-            deviceIterator = deviceMap.getAll().values().iterator();
+            deviceIterator = deviceMap.values().iterator();
         } else {
             // index lookup
             Entity entity = new Entity((macAddress == null ? 0 : macAddress),
@@ -450,7 +454,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             index = classState.classIndex;
             if (index == null) {
                 // scan all devices
-                return new DeviceIterator(deviceMap.getAll().values().iterator(),
+                return new DeviceIterator(deviceMap.values().iterator(),
                                           new IEntityClass[] { entityClass },
                                           macAddress, vlan, ipv4Address,
                                           switchDPID, switchPort);
@@ -491,7 +495,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         Iterator<Device> deviceIterator = null;
         if (index == null) {
             // Do a full table scan
-            deviceIterator = deviceMap.getAll().values().iterator();
+            deviceIterator = deviceMap.values().iterator();
         } else {
             // index lookup
             Entity entity = new Entity((macAddress == null ? 0 : macAddress),
@@ -679,13 +683,11 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
     @Override
     public void init(FloodlightModuleContext fmc) {
     	Device.deviceManager = this;
-    	ds = new Datastore();
-    	
-    	Datastore.initDatastoreFromController(ds);
-    	this.controllersTable = ds.getTable(Datastore.CONTROLLERS_SYSTEM_INFO, datastore.util.KeySerializationFunctions.STRING_DESERIALIZE, datastore.util.KeySerializationFunctions.STRING_SERIALIZE);  
-        secondaryIndexMap = ds.getTable("SECONDARY_INDEX_MAP",  null, null);
-
-        deviceMap = ds.getTable("DEVICE_MAP",  datastore.util.KeySerializationFunctions.LONG_DESERIALIZE, datastore.util.KeySerializationFunctions.LONG_SERIALIZE);
+        secondaryIndexMap = null; //ColumnTable_.getTable(new ColumnProxy((int) Thread.currentThread().getId()), "SECONDARY",Serializer.LONG ,AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
+        
+        
+        deviceMap = ColumnTable_.getTable(new ColumnProxy((int) Thread.currentThread().getId()), "DEVICES",Serializer.LONG ,AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
+        
         classStateMap = new ConcurrentHashMap<String, ClassState>(); 
              
         apComparator = new AttachmentPointComparator();
@@ -772,13 +774,11 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
     protected Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi,
                                              FloodlightContext cntx) {
-
-    	
         Ethernet eth =
                 IFloodlightProviderService.bcStore.
                 get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
-        ActivityEvent e = ds.getBenchManager().addActivity(ActivityEvent.packetIn(eth.toString()));
+        //ActivityEvent e = ds.getBenchManager().addActivity(ActivityEvent.packetIn(eth.toString()));
         // Extract source entity information
         Entity srcEntity =
                 getSourceEntityFromPacket(eth, sw.getId(), pi.getInPort());
@@ -814,7 +814,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
        }
 
         snoopDHCPClientName(eth, srcDevice);
-        ds.getBenchManager().endActivity(e); 
+        //ds.getBenchManager().endActivity(e); 
         return Command.CONTINUE;
     }
 
@@ -838,7 +838,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             DHCPOption dhcpOption = dhcp.getOption(
                     DHCPOptionCode.OptionCode_Hostname);
             if (dhcpOption != null) {
-                srcDevice.dhcpClientName = new String(dhcpOption.getData());
+                srcDevice.setDhcpClientName(new String(dhcpOption.getData()));
             }
         }
     }
@@ -1094,6 +1094,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         // concurrent modification.  Note that we ensure that at least
         // one thread should always succeed so we don't get into infinite
         // starvation loops
+        
+        
         while (true) {
             deviceUpdates = null;
 
@@ -1166,9 +1168,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 }
                 
 
-                deviceKey = controllersTable.getAndIncrement(Datastore.DEVICE_MANAGER_LAST_COUNTER); 
-
-                
+                deviceKey = (long) this.deviceMap.getAndIncrement("deviceId"); 
 
                 device = allocateDevice(deviceKey, entity, entityClass);
 
@@ -1202,7 +1202,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 break;
             }
             
-            deviceKey = device.deviceKey; 
+            deviceKey = device.getDeviceKey(); 
             if (!isEntityAllowed(entity, device.getEntityClass())) {
                 logger.info("PacketIn is not allowed {} {}", 
                             device.getEntityClass().getName(), entity);
@@ -1221,7 +1221,6 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             if ((entityindex = device.entityIndex(entity)) >= 0) {
                 // Entity already exists 
                 // update timestamp on the found entity
-            	String s = device.toString(); 
             	Device oldDevice = device.clone(); 
                 Date lastSeen = entity.getLastSeenTimestamp();
                 
@@ -1229,12 +1228,24 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                     lastSeen = new Date();
                     entity.setLastSeenTimestamp(lastSeen);
                 }
+                //FIXME: set column . one operation only. 
+                //FIXME: timestamp replace. 
+                device.getEntity(entityindex).setLastSeenTimestamp(lastSeen);
                 
-                device.entities[entityindex].setLastSeenTimestamp(lastSeen);
-                deviceMap.replace(device.deviceKey, oldDevice, device);
-                if (!deviceMap.put(device.deviceKey,  device, false)){
+                System.out.println("Setting timestamp : " + device.getEntities().length);
+                
+                if(!deviceMap.setColumn(device.getDeviceKey(), "getEntities", device.getEntities())){
+                	
+                	//FIXME - this should be atomically defined. 
+                	System.out.println("Could not update last seen timestamp"); 
+                	//FIXME continue; 
+                }
+                System.out.println("Timestamp set");
+                //replace(device.getDeviceKey(), oldDevice, device);
+                /*if (!deviceMap.put(device.getDeviceKey(),  device)){
                 	continue; 
                 }
+                */
                 
                 // we break the loop after the else block and after checking
                 // for new AP
@@ -1250,9 +1261,10 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                         findChangedFields(device, entity);
 
                 // update the device map with a replace call
-                deviceMap.replace(deviceKey, device, newDevice); 
-                boolean res = deviceMap.put(deviceKey,newDevice, false);
-
+                //deviceMap.replace(deviceKey, device, newDevice);
+                //FIXME 
+                boolean res = deviceMap.insert(deviceKey,newDevice);
+                
                 // If replace returns false, restart the process from the
                 // beginning (this implies another thread concurrently
                 // modified this Device).Table
@@ -1285,9 +1297,11 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                                 entity.getSwitchPort().shortValue(),
                                 entity.getLastSeenTimestamp().getTime());
                 //TODO : not optimal - not sure if device changed.
+                
                 if (!oldDevice.equals(device)){
-                	deviceMap.replace(deviceKey, oldDevice, device); 
-                	if (!deviceMap.put(device.deviceKey, device,false)){
+                	//FIXME
+                	//deviceMap.replace(deviceKey, oldDevice, device); 
+                	if (!deviceMap.insert(device.getDeviceKey(), device)){
                 		continue; 
                 	}
                 }
@@ -1299,15 +1313,15 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                     sendDeviceMovedNotification(device);
                     if (logger.isTraceEnabled()) {
                         logger.trace("Device moved: attachment points {}," +
-                                "entities {}", device.attachmentPoints,
-                                device.entities);
+                                "entities {}", device.getAttachmentPoints(),
+                                device.getEntities());
                     }
                 } else {
                     if (logger.isTraceEnabled()) {
                         logger.trace("Device attachment point updated: " +
                                      "attachment points {}," +
-                                     "entities {}", device.attachmentPoints,
-                                     device.entities);
+                                     "entities {}", device.getAttachmentPoints(),
+                                     device.getEntities());
                     }
                 }
             }
@@ -1559,7 +1573,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         /* iterate through the devices, reclassify the devices that belong
          * to these entity class names
          */
-        Iterator<Device> diter = deviceMap.getAll().values().iterator();
+        Iterator<Device> diter = deviceMap.values().iterator();
         while (diter.hasNext()) {
             Device d = diter.next();
             if (d.getEntityClass() == null ||
@@ -1580,7 +1594,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         ArrayList<Entity> toRemove = new ArrayList<Entity>();
         ArrayList<Entity> toKeep = new ArrayList<Entity>();
 
-        Iterator<Device> diter = deviceMap.getAll().values().iterator();
+        Iterator<Device> diter = deviceMap.values().iterator();
         LinkedList<DeviceUpdate> deviceUpdates =
                 new LinkedList<DeviceUpdate>();
 
@@ -1610,11 +1624,12 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
 
                 if (toKeep.size() > 0) {
                     Device newDevice = allocateDevice(d.getDeviceKey(),
-                                                      d.getDHCPClientName(),
-                                                      d.oldAPs,
-                                                      d.attachmentPoints,
+                                                      d.getDhcpClientName(),
+                                                      d.getOldAPs(),
+                                                      //XXX 
+                                                      d.getAps(),
                                                       toKeep,
-                                                      d.entityClass);
+                                                      d.getEntityClass());
 
                     EnumSet<DeviceField> changedFields =
                             EnumSet.noneOf(DeviceField.class);
@@ -1624,8 +1639,8 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                     DeviceUpdate update = null;
                     if (changedFields.size() > 0)
                         update = new DeviceUpdate(d, CHANGE, changedFields);
-
-                    if (!deviceMap.put(newDevice.getDeviceKey(),
+                    //FIXME
+                    if (!deviceMap.insert(newDevice.getDeviceKey(),
                                            newDevice)) {
                         // concurrent modification; try again
                         // need to use device that is the map now for the next
@@ -1659,7 +1674,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                               Device device,
                               Collection<Entity> others) {
         for (DeviceIndex index : secondaryIndexMap.getAll().values()) {
-            if (index.removeEntityIfNeeded(removed, device.deviceKey, others)){
+            if (index.removeEntityIfNeeded(removed, device.getDeviceKey(), others)){
             	secondaryIndexMap.put(index.keyFields, index); 
             }
         }
@@ -1667,7 +1682,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         ClassState classState = getClassState(entityClass);
         boolean changed =false;
         for (DeviceIndex index : classState.secondaryIndexMap.values()) {
-            if (index.removeEntityIfNeeded(removed, device.deviceKey, others)){
+            if (index.removeEntityIfNeeded(removed, device.getDeviceKey(), others)){
             	changed = true; 
             }
         }
@@ -1676,7 +1691,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         
         if (classState.classIndex != null) {
            if ( classState.classIndex.removeEntityIfNeeded(removed,
-                                                       device.deviceKey,
+                                                       device.getDeviceKey(),
                                                        others)){
         	   changed = true;
            }
@@ -1769,8 +1784,9 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 newPossibleAPs.add(aP);
             }
         }
-        if (device.attachmentPoints != null) {
-            for (AttachmentPoint oldAP : device.attachmentPoints) {
+        //FIXME - double check every AttachmentPoint thing...
+        if (device.getAttachmentPoints() != null) {
+            for (AttachmentPoint oldAP : device.getAps()) {
                 if (newPossibleAPs.contains(oldAP)) {
                     newAPs.add(oldAP);
                 }
@@ -1779,7 +1795,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
         if (newAPs.isEmpty())
             newAPs = null;
         Device d = new Device( device.getDeviceKey(),
-                              device.getDHCPClientName(), newAPs, null,
+                              device.getDhcpClientName(), newAPs, null,
                               entities, device.getEntityClass());
         d.updateAttachmentPoint();
         return d;
@@ -1800,7 +1816,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      */
     @Override
     public void topologyChanged() {
-        Iterator<Device> diter = deviceMap.getAll().values().iterator();
+        Iterator<Device> diter = deviceMap.values().iterator();
         List<LDUpdate> updateList = topology.getLastLinkUpdates();
         if (updateList != null) {
             if (logger.isTraceEnabled()) {
@@ -1848,7 +1864,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             return false;
         }
         boolean needToReclassify = false;
-        for (Entity entity : device.entities) {
+        for (Entity entity : device.getEntities()) {
             IEntityClass entityClass = 
                     this.entityClassifier.classifyEntity(entity);
             if (entityClass == null || device.getEntityClass() == null) {
@@ -1873,7 +1889,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 DeviceUpdate.Change.DELETE, null));
         if (!deviceUpdates.isEmpty())
             processUpdates(deviceUpdates);
-        for (Entity entity: device.entities ) {
+        for (Entity entity: device.getEntities() ) {
             this.learnDeviceByEntity(entity);
         }
         return true;

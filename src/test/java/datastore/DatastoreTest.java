@@ -18,20 +18,25 @@ import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class DatastoreTest {
-	private static int counter; 
-	Datastore ds;
-	private Table<String,String> table; 
+import bonafide.datastore.KeyValueProxy;
+import bonafide.datastore.tables.KeyValueTable;
+import bonafide.datastore.tables.KeyValueTable_;
+import bonafide.datastore.util.UnsafeJavaSerializer;
 
+public class DatastoreTest {
+	KeyValueTable<String, String> table;
+	
 	public DatastoreTest(){
-		ds = new Datastore(); 
-	}
-	 	
-	@BeforeClass 
-	public static void startup(){
-		MapSmart.main(new String[0]); 	
+		//FIXME
+		table = KeyValueTable_.getOrCreateTable(new KeyValueProxy(), "table", UnsafeJavaSerializer.<String>getInstance(), UnsafeJavaSerializer.<String>getInstance()); 
 	}
 	
+	@BeforeClass 
+	public static void startup(){
+		//Start data store. 
+		MapSmart.main(new String[0]); 	
+	}
+	/*
 	@Test
 	public void testCreateTable() {
 		assertTrue(ds.createTable("table_created"));
@@ -68,11 +73,6 @@ public class DatastoreTest {
 	}
 
 	
-	@Test
-	public void testClear() {
-		ds.clear();
-		assertTrue(ds.isEmpty()); 
-	}
 	
 	@Test
 	public void testClearString() {
@@ -83,6 +83,7 @@ public class DatastoreTest {
 		ds.clear("test_clear"); 
 		Assert.assertEquals((int) table.size(),  0);
 	}
+	*/
 	
 	@Test
 	public void testContainsKey() {
@@ -240,9 +241,7 @@ public class DatastoreTest {
 	@Test 
 	public void testAtomicREmove(){
 		ds.clear(); 
-ds.createTable("atomicReplace"); table = ds.getTable("atomicReplace", null, null); 
-		
-		
+		ds.createTable("atomicReplace"); table = ds.getTable("atomicReplace", null, null); 
 		assertFalse(table.remove("a", "old")); //should not remove, "a" is not mapped to  nothing
 		assertFalse(table.remove("a", "old"));// still.. does not remove. 
 		assertFalse(table.containsKey("a")); //should not contain
@@ -260,10 +259,7 @@ ds.createTable("atomicReplace"); table = ds.getTable("atomicReplace", null, null
 		assertNull(table.putIfAbsent("a", "old")); // no value there before
 		assertEquals(table.putIfAbsent("a", "old"), "old");// still.. does not remove. 
 		assertTrue(table.containsKey("a")); //should not contain
-
-
 	}
-	
 	
 	@After
 	public  void cleantable(){

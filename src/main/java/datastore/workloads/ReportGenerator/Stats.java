@@ -5,9 +5,10 @@ import java.util.List;
 import org.apache.commons.math3.stat.Frequency;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
+import bonafide.datastore.workloads.RequestLogEntry;
+
 import com.google.common.base.Function;
 
-import datastore.workloads.RequestLogEntry;
 import datastore.workloads.WorkLoadResults;
 
 public class Stats{

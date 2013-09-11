@@ -55,7 +55,6 @@ import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.staticflowentry.IStaticFlowEntryPusherService;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.topology.NodePortTuple;
-import net.floodlightcontroller.util.MACAddress;
 import net.floodlightcontroller.util.OFMessageDamper;
 
 import org.openflow.protocol.OFFlowMod;
@@ -83,9 +82,10 @@ import org.openflow.util.U16;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import bonafide.datastore.workloads.ActivityEvent;
 import datastore.Datastore;
 import datastore.Table;
-import datastore.workloads.ActivityEvent;
+import datastore.TableWithCache;
 
 /**
  * A simple load balancer module for ping, tcp, and udp flows. This module is accessed 
@@ -113,13 +113,17 @@ class IPClient implements Serializable{
         nw_proto = 0;
         srcPort = -1;
         targetPort = -1;
+        
     }
 }
 
 public class LoadBalancer implements IFloodlightModule,
     ILoadBalancerService, IOFMessageListener {
 
-    protected static Logger log = LoggerFactory.getLogger(LoadBalancer.class);
+
+    private static final long CACHE_MAX_TS = 1000; //Time to consider a cache entry invalid in ms.  
+
+	protected static Logger log = LoggerFactory.getLogger(LoadBalancer.class);
 
     // Our dependencies
     protected IFloodlightProviderService floodlightProvider;
@@ -133,13 +137,13 @@ public class LoadBalancer implements IFloodlightModule,
     protected IStaticFlowEntryPusherService sfp;
 
     protected Datastore ds ; 
-    protected Table<String, LBVip> vips;
+    protected TableWithCache<String, LBVip> vips;
     protected Table<String, LBPool> pools;
-    protected Table<String, LBMember> members;
-    protected Table<Integer, String> vipIpToId;
-    protected Table<Integer, MACAddress> vipIpToMac;
-    protected Table<Integer, String> memberIpToId;
-    protected Table<IPClient, LBMember> clientToMember;
+    protected TableWithCache<String, LBMember> members;
+    protected TableWithCache<Integer, LBVip> vipIpToId;
+    
+    protected TableWithCache<Integer, String> memberIpToId;
+    protected TableWithCache<IPClient, LBMember> clientToMember;
     
     //Copied from Forwarding with message damper routine for pushing proxy Arp 
     protected static int OFMESSAGE_DAMPER_CAPACITY = 10000; // ms. 
@@ -160,8 +164,6 @@ public class LoadBalancer implements IFloodlightModule,
                 }
             };
 
-    
-    
     @Override
     public String getName() {
         return "loadbalancer";
@@ -197,10 +199,13 @@ public class LoadBalancer implements IFloodlightModule,
             processPacketIn(IOFSwitch sw, OFPacketIn pi,
                             FloodlightContext cntx) {
         
+    	String hash = "";
+    	
         Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
                                                               IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-    	ActivityEvent event = this.ds.getBenchManager().addActivity(ActivityEvent.packetIn(eth.toString()));
-
+        
+    	ActivityEvent event = this.ds.getBenchManager().addActivity(ActivityEvent.packetIn(eth.toString() + "| "+  eth.getPayload().toString()));
+    	
         IPacket pkt = eth.getPayload();
  
         if (eth.isBroadcast() || eth.isMulticast()) {
@@ -210,8 +215,9 @@ public class LoadBalancer implements IFloodlightModule,
                 ARP arpRequest = (ARP) eth.getPayload();
                 int targetProtocolAddress = IPv4.toIPv4Address(arpRequest
                                                                .getTargetProtocolAddress());
-
-                String vipId = vipIpToId.get(targetProtocolAddress);
+                
+                LBVip bpv = vipIpToId.get(targetProtocolAddress, 1000);
+                String vipId = bpv != null? bpv.id : null; 
                 if (vipId != null) {
                 	//TODO Problem ... 
                     vipProxyArpReply(sw, pi, cntx, vipId);
@@ -227,11 +233,14 @@ public class LoadBalancer implements IFloodlightModule,
                 // If match Vip and port, check pool and choose member
                 int destIpAddress = ip_pkt.getDestinationAddress();
 
-                String vipIP = vipIpToId.get(destIpAddress); 
+                LBVip vp = vipIpToId.get(destIpAddress,LoadBalancer.CACHE_MAX_TS);  // READ-OP : get IP 
+                String vipIP =  vp != null? vp.id : null; 
+                
                 if (vipIP != null){
                     IPClient client = new IPClient();
                     client.ipAddress = ip_pkt.getSourceAddress();
                     client.nw_proto = ip_pkt.getProtocol();
+                    
                     if (client.nw_proto == IPv4.PROTOCOL_TCP) {
                         TCP tcp_pkt = (TCP) ip_pkt.getPayload();
                         client.srcPort = tcp_pkt.getSourcePort();
@@ -249,16 +258,20 @@ public class LoadBalancer implements IFloodlightModule,
                     
                     
                     //TODO This sounds like transactional material... 
-                    LBVip vip = vips.get(vipIP);
+                    LBVip vip = vp; //vips.get(vipIP);
                     LBPool oldpool, newpool;
                     String pickedMember;
-                    do {
+                    /*do {
                     	oldpool= pools.get(vip.pickPool(client));
                     	newpool = oldpool.clone(); 
                     	pickedMember = newpool.pickMember(client); //FIXME: boom, another guy has pickedMember;
                     }while ( oldpool != null && !pools.replace(oldpool.id, oldpool, newpool));  
-                    
-                    LBMember member = members.get(pickedMember); 
+                    */
+                    oldpool = pools.get(vip.pickPool(client));  // READ-OP
+                    pickedMember = oldpool.pickMember(client); 
+                    pools.put(oldpool.id, oldpool);  // WRITE 
+
+                    LBMember member = members.get(pickedMember, LoadBalancer.CACHE_MAX_TS);  // READ - OP 
                     // for chosen member, check device manager and find and push routes, in both directions                    
                     pushBidirectionalVipRoutes(sw, pi, cntx, client, member, vip);
                    
@@ -323,7 +336,7 @@ public class LoadBalancer implements IFloodlightModule,
         // push ARP reply out
         pushPacket(arpReply, sw, OFPacketOut.BUFFER_ID_NONE, OFPort.OFPP_NONE.getValue(),
                    pi.getInPort(), cntx, true);
-        log.debug("proxy ARP reply pushed as {}", IPv4.fromIPv4Address(vips.get(vipId).address));
+        //log.debug("proxy ARP reply pushed as {}", IPv4.fromIPv4Address(vips.get(vipId).address));
         
         return;
     }
@@ -640,8 +653,8 @@ public class LoadBalancer implements IFloodlightModule,
             vip = new LBVip();
         
         vips.put(vip.id, vip);
-        vipIpToId.put(vip.address, vip.id);
-        vipIpToMac.put(vip.address, vip.proxyMac);
+        vipIpToId.put(vip.address, vip);
+        
         
         return vip;
     }
@@ -649,6 +662,7 @@ public class LoadBalancer implements IFloodlightModule,
     @Override
     public LBVip updateVip(LBVip vip) {
         vips.put(vip.id, vip);
+        vipIpToId.put(vip.address, vip); 
         return vip;
     }
 
@@ -686,6 +700,7 @@ public class LoadBalancer implements IFloodlightModule,
             LBVip p = vips.get(pool.vipId); 
         	p.pools.add(pool.id);
         	vips.put(p.id, p);
+        	this.vipIpToId.put(p.address, p); 
         }
         else {
             log.error("specified vip-id must exist");
@@ -709,7 +724,8 @@ public class LoadBalancer implements IFloodlightModule,
             if (pool.vipId != null){
                LBVip p = vips.get(pool.vipId); 
                p.pools.remove(poolId);
-               vips.put(p.id, p); 
+               vips.put(p.id, p);
+               this.vipIpToId.put(p.address, p); 
             }
             pools.remove(poolId);
             return 0;
@@ -746,10 +762,7 @@ public class LoadBalancer implements IFloodlightModule,
     public LBMember createMember(LBMember member) {
         if (member == null)
             member = new LBMember();
-
-       
         
-
         if (member.poolId != null && pools.get(member.poolId) != null) {
             member.vipId = pools.get(member.poolId).vipId;
             if (!pools.get(member.poolId).members.contains(member.id)){
@@ -870,12 +883,11 @@ public class LoadBalancer implements IFloodlightModule,
                                             OFMESSAGE_DAMPER_TIMEOUT);
         
         ds = new Datastore(); 
-        vips =  ds.getTable("LB_VIPS",datastore.util.KeySerializationFunctions.STRING_DESERIALIZE	,datastore.util.KeySerializationFunctions.STRING_SERIALIZE);
+        vips =  (TableWithCache) ds.getTable("LB_VIPS",datastore.util.KeySerializationFunctions.STRING_DESERIALIZE	,datastore.util.KeySerializationFunctions.STRING_SERIALIZE);
         pools = ds.getTable("LB_POOLS",null,null);
-        members = ds.getTable("LB_MEMBERS",null,null); 
-        vipIpToId = ds.getTable("LB_VIP_IP_TO_ID",null, null); 
-        vipIpToMac = ds.getTable("LB_VIP_IP_TO_MAC", null, null); 
-        memberIpToId = ds.getTable("LB_MEMBER_IP_TO_ID", null,null); 
+        members = (TableWithCache) ds.getTable("LB_MEMBERS",null,null); 
+        vipIpToId = (TableWithCache) ds.getTable("LB_VIP_IP_TO_ID",null, null);
+        memberIpToId = (TableWithCache) ds.getTable("LB_MEMBER_IP_TO_ID", null,null); 
     }
 
     @Override
