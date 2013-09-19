@@ -38,7 +38,9 @@ public class ReportGenerator {
 				//singularCase(args[1]);
 				//readLogAndCreateReport("./workloads/report/100.known/usedLog.0.1000","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
 				//readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "Hosts have static arp tables", 0, 1000);
-				readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/", "100 No arp - Ping between known hosts", "Hosts have static arp tables", 60,10000);			
+				//readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/ewsdn/loadBalancer", "Load Balancer Trace", "Original cut. You can see the controller initialization; then the ping between all clients, then the load balancer initialization, and finally the ping from h1 to 10.0.0.100 result in the load balancer activity.",0,10000);
+				readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/ewsdn/learningSwitch", "Learning Switch Operation", "",0,100000);
+				//readLogAndCreateReport("./workloads/learning","./workloads/report/ewsdn/scratch", "Known Devices", "In here we see two packets: imcp echo request/reply. The response from the controller to the datastore is the same in both cases : two reads (destination device, source device), one write (update timestamp of source device). ",0,1000000);
 				//readLogAndCreateReport("./workloads/report/300.known/usedLog.200.265","./workloads/report/", "Logs", "", 220, 265);
 				//readLogAndCreateReport("./workloads/logs.objectsctrlc","./workloads/report/500.base/", "500 Hosts", "", 425, 450);
 				break; 
@@ -96,7 +98,6 @@ public class ReportGenerator {
 			}*/
 			rootFile.addElement(gp);
 		}
-
 		rootFile.addElement(new ListOperations("Operations", "The log of the operations requested to the database", new WorkLoadResults(fileInput)));
 	}
 	
@@ -181,7 +182,7 @@ public class ReportGenerator {
 		if (!outputFolder.endsWith("workloads/report/"))
 			copyFile(new File("./workloads/report/style.css"), new File(outputFolder + "style.css")); 
 		
-		rootFile = new Source(title2, description, outputFolder) ;
+		rootFile = new Source(title2, dsc, outputFolder) ;
 	}
 	
 	public static void copyFile(File sourceFile, File destFile) throws IOException {

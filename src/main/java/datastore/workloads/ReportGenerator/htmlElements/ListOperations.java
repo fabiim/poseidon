@@ -32,7 +32,7 @@ public class ListOperations extends SourceElement{
 
 	private void render_element(ActivityEvent current) {
 		if (current.getType().equals(EVENT_TYPE.PACKET_IN)){
-			out.append("<div style=\"width:300px;height:100px;border:1px solid blue;\">");
+			out.append("<div style=\"border:1px solid blue;\">");
 			out.append( "(" + (current.timeStart - rs.getTimeZero()) + ")" +current.p);
 			out.append("</div>"); 
 		}

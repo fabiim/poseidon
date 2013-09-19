@@ -97,7 +97,7 @@ public class LearningSwitch
     protected static final int MAX_MACS_PER_SWITCH  = 1000;    
 
     // normally, setup reverse flow as well. Disable only for using cbench for comparison with NOX etc.
-    protected static final boolean LEARNING_SWITCH_REVERSE_FLOW = true;
+    protected static final boolean LEARNING_SWITCH_REVERSE_FLOW = false;
     
     /**
      * @param floodlightProvider the floodlightProvider to set
@@ -275,7 +275,7 @@ public class LearningSwitch
         if (pi == null) {
             return;
         }
-
+        
         // The assumption here is (sw) is the switch that generated the 
         // packet-in. If the input port is the same as output port, then
         // the packet-out should be ignored.
