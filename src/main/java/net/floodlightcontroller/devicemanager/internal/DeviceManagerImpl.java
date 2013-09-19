@@ -98,6 +98,8 @@ import com.google.common.collect.Maps;
 
 import datastore.Datastore;
 import datastore.Table;
+import datastore.workloads.ActivityEvent;
+
 /**
  * DeviceManager creates Devices based upon MAC addresses seen in the network.
  * It tracks any network addresses mapped to the Device, and its location
