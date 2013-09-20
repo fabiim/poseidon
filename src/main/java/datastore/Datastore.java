@@ -24,7 +24,7 @@ import com.google.common.base.Function;
 import ch.qos.logback.classic.Level;
 import bftsmart.tom.ServiceProxy;
 import bonafide.datastore.workloads.RequestLogEntry;
-import datastore.workloads.logger.RequestLogger;
+import bonafide.datastore.workloads.RequestLogger;
 
 /**
  * @author fabiim

@@ -80,6 +80,8 @@ import net.floodlightcontroller.topology.ITopologyListener;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.util.MultiIterator;
 
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.configuration.PropertiesConfiguration;
 import org.openflow.protocol.OFMatchWithSwDpid;
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFPacketIn;
@@ -88,11 +90,12 @@ import org.openflow.protocol.OFType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import bonafide.datastore.ColumnProxy;
 import bonafide.datastore.tables.AnnotatedColumnObject;
-import bonafide.datastore.tables.ColumnTable_;
+import bonafide.datastore.tables.ColumnTable;
 import bonafide.datastore.util.Serializer;
 import bonafide.datastore.workloads.ActivityEvent;
+import bonafide.datastore.workloads.ColumnWorkloadLogger;
+import bonafide.datastore.workloads.RequestLogger;
 
 import com.google.common.collect.Maps;
 
@@ -109,7 +112,6 @@ public class DeviceManagerImpl implements
 IDeviceService, IOFMessageListener, ITopologyListener,
 IFloodlightModule, IEntityClassListener,
 IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
-	
 	
 	//FIXME: Device Manager and device mac,vlan and ip point to different devices. Modifications in one, will be reflected in others...
 	
@@ -147,7 +149,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      * objects.
      */
     //protected ConcurrentHashMap<Long, Device> deviceMap;
-    ColumnTable_<Long, Device> deviceMap;
+    ColumnTable<Long, Device> deviceMap;
     
     /**
      * Counter used to generate device keys
@@ -177,7 +179,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      * This is the list of indices we want on a per-class basis
      */
     protected Map<EnumSet<DeviceField>,EnumSet<DeviceField>> perClassIndices;
-
+    
     /**
      * The entity classifier currently in use
      */
@@ -221,7 +223,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             this.change = change;
             this.fieldsChanged = fieldsChanged;
         }
-
+        
         @Override
         public String toString() {
             String devIdStr = device.getEntityClass().getName() + "::" +
@@ -243,7 +245,12 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
      */
     protected class AttachmentPointComparator
     implements Comparator<AttachmentPoint> , Serializable{
-        public AttachmentPointComparator() {
+        /**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
+		public AttachmentPointComparator() {
             super();
         }
 
@@ -683,10 +690,25 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
     @Override
     public void init(FloodlightModuleContext fmc) {
     	Device.deviceManager = this;
-        secondaryIndexMap = null; //ColumnTable_.getTable(new ColumnProxy((int) Thread.currentThread().getId()), "SECONDARY",Serializer.LONG ,AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
-        
-        
-        deviceMap = ColumnTable_.getTable(new ColumnProxy((int) Thread.currentThread().getId()), "DEVICES",Serializer.LONG ,AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
+        secondaryIndexMap = null; //ColumnTable_.getTable(new ColumnProxy((int) Thread.currentThread().getId()), "SECONDARY",Serializer.LONG ,AnnotatedColumnObject.newAnnotatedColumnObject(Device.class));
+        //XXX - clean up request.
+
+		PropertiesConfiguration config=null; 
+		// create and load default properties
+		try{
+			config = new PropertiesConfiguration("datastore.config"); 
+		} catch (ConfigurationException e) {
+			System.err.println("Could not read configuration file");
+			System.exit(-1);
+		}
+		
+		
+		if (config.getBoolean("benchmark")){
+			RequestLogger.startRequestLogger(config.getString("benchmark.output"));
+		}
+		
+        deviceMap = new ColumnWorkloadLogger<Long,Device>("DEVICES", RequestLogger.getRequestLogger(), Serializer.LONG, AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
+//        deviceMap = ColumnTable_.getTable(new ColumnProxy((int) Thread.currentThread().getId()), "DEVICES",Serializer.LONG ,AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
         
         classStateMap = new ConcurrentHashMap<String, ClassState>(); 
              
@@ -778,19 +800,21 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 IFloodlightProviderService.bcStore.
                 get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
-        //ActivityEvent e = ds.getBenchManager().addActivity(ActivityEvent.packetIn(eth.toString()));
+        ActivityEvent e = RequestLogger.getRequestLogger().addActivity(ActivityEvent.packetIn(eth.toString()));
         // Extract source entity information
         Entity srcEntity =
                 getSourceEntityFromPacket(eth, sw.getId(), pi.getInPort());
 
-        if (srcEntity == null)
+        if (srcEntity == null){
+        	RequestLogger.getRequestLogger().endActivity(e);
             return Command.STOP;
-
+        }
         // Learn/lookup device information
         Device srcDevice = learnDeviceByEntity(srcEntity);
-        if (srcDevice == null)
+        if (srcDevice == null){
+        	RequestLogger.getRequestLogger().endActivity(e);
             return Command.STOP;
-
+        }
         // Store the source device in the context
         fcStore.put(cntx, CONTEXT_SRC_DEVICE, srcDevice);
 
@@ -814,6 +838,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
        }
 
         snoopDHCPClientName(eth, srcDevice);
+        RequestLogger.getRequestLogger().endActivity(e);
         //ds.getBenchManager().endActivity(e); 
         return Command.CONTINUE;
     }
@@ -1825,7 +1850,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
                 }
             }
         }
-
+        
         while (diter.hasNext()) {
             Device d = diter.next();
             if (d.updateAttachmentPoint()) {
@@ -1836,7 +1861,7 @@ IFlowReconcileListener, IInfoProvider, IHAListener, Serializable {
             }
         }
     }
-
+    
     /**
      * Send update notifications to listeners
      * @param updates the updates to process.

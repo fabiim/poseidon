@@ -835,7 +835,8 @@ public final class Device implements IDevice,Serializable{
             // We have an IP address only if among the devices within the class
             // we have the most recent entity with that IP.
             boolean validIP = true;
-            Iterator<Device> devices =
+            //FIXME : well this has been cut since : 1) right now it does not matter 2) it triggers invocations to the data store resulting in an infinite loop. Right known a device is sure to have to have that ip. No device mobility. 
+            /*Iterator<Device> devices =
                     deviceManager.queryClassByEntity(getEntityClass(), ipv4Fields, e);
             while (devices.hasNext()) {
             	
@@ -854,7 +855,7 @@ public final class Device implements IDevice,Serializable{
                 }
                 if (!validIP)
                     break;
-            }
+            }*/
 
             if (validIP)
                 vals.add(e.getIpv4Address());

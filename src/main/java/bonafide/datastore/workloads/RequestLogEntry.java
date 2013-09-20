@@ -34,7 +34,13 @@ public  class RequestLogEntry implements Serializable{
 		return timeStarted;
 	}
 
-	
+	public void setStrackTrace(){
+		StackTraceElement stt[] = Thread.currentThread().getStackTrace();
+		tid = Thread.currentThread().getId(); 
+		for (int i = 4 ; i < 14  && i < stt.length; i++){
+			st[i] = stt[i].toString(); 
+		}
+	}
 	
 	public RequestLogEntry(){
 		serial = RequestLogEntry.serialGenerator++; 
@@ -44,7 +50,7 @@ public  class RequestLogEntry implements Serializable{
 	/**
 	 * 
 	 */
-	private void initializeFields() {
+	public void initializeFields() {
 		timeEnded = sizeOfResponse = sizeOfRequest = 0;
 		timeStarted = System.currentTimeMillis();
 		
@@ -60,6 +66,7 @@ public  class RequestLogEntry implements Serializable{
 		this.timeEnded = timeEnded;
 		this.sizeOfRequest = sizeOfRequest;
 		this.sizeOfResponse = sizeOfResponse;
+		initializeFields(); 
 	}
 
 	
@@ -69,7 +76,7 @@ public  class RequestLogEntry implements Serializable{
 		timeStarted = r.getTimeStarted(); 
 		timeEnded = r.getTimeEnded(); 
 		sizeOfRequest = r.getSizeOfRequest(); 
-		sizeOfResponse = r.getSizeOfResponse(); 
+		sizeOfResponse = r.getSizeOfResponse();
 	}
 
 	public RequestType getType() {
@@ -132,7 +139,7 @@ public  class RequestLogEntry implements Serializable{
 		result = prime * result + ((type == null) ? 0 : type.hashCode());
 		return result;
 	}
-
+	
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)

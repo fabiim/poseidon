@@ -8,11 +8,10 @@ import java.util.Map;
 import java.util.Set;
 
 import bonafide.datastore.workloads.RequestLogEntry;
+import bonafide.datastore.workloads.RequestLogger;
 
 import com.google.common.base.Function;
 import com.sun.xml.internal.bind.v2.TODO;
-
-import datastore.workloads.logger.RequestLogger;
 
 /**
  * A DataStoreProxy is a proxy object that  knows how to communicate with the data store. The proxy implements all the data store supported operations 

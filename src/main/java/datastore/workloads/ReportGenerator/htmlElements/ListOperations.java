@@ -5,6 +5,7 @@ import java.util.Iterator;
 import bonafide.datastore.workloads.ActivityEvent;
 import bonafide.datastore.workloads.EVENT_TYPE;
 import bonafide.datastore.workloads.RequestLogEntry;
+import bonafide.datastore.workloads.RequestLogWithDataInformation;
 import datastore.workloads.WorkLoadResults;
 
 public class ListOperations extends SourceElement{
@@ -50,16 +51,24 @@ public class ListOperations extends SourceElement{
 	
 	private void render_element(RequestLogEntry en) {
 		System.out.println("{ FlowSimulation." + (en.getType().isRead() ?  "READ_OP" : "WRITE_OP") +  "," + en.getSizeOfRequest() + "," + en.getSizeOfResponse() + "},"); 
-		out.append("<li>"); 
-		out.append( "(" + (en.getTimeStarted() - rs.getTimeZero())  + " - " + en.tid  + ") - " + (en.getType().isRead() ? "(R) - " : "(W) - ") +  
-					en.getType().name()  +  ", table = " + en.getTable() +    
-					(!en.getKey().equals("-")?   ", key = " + en.getKey() :"") +
-					(!en.getValue().equals("-") ?  ", value = " + en.getValue() : "") +
-					(!en.getExistentValue().equals("-")? ", existentValue = " + en.getExistentValue() : "") +
+		out.append("<li>");
+		if (en instanceof RequestLogWithDataInformation){
+			RequestLogWithDataInformation data = (RequestLogWithDataInformation) en;
+			long time = en.getTimeStarted() - rs.getTimeZero(); 
+			out.append( "(" + (time)  + " - " + en.tid  + ") - " + (en.getType().isRead() ? "(R) - " : "(W) - ") +  
+				en.getType().name()  +  ", table = " + data.getTable() +    
+				(!data.getKey().equals("-")?   ", key = " + data.getKey() :"") +
+				(!data.getValue().equals("-") ?  ", value = " + data.getValue() : "") +
+				(!data.getExistentValue().equals("-")? ", existentValue = " + data.getExistentValue() : "") +
+				 ", request size = " + en.getSizeOfRequest() + ", response size =" + en.getSizeOfResponse() 
+			);
+		}
+		else{
+			out.append( "(" + (en.getTimeStarted() - rs.getTimeZero())  + " - " + en.tid  + ") - " + (en.getType().isRead() ? "(R) - " : "(W) - ") +  
+					en.getType().name()  +      
 					 ", request size = " + en.getSizeOfRequest() + ", response size =" + en.getSizeOfResponse() 
-		
 				);
-		
+		}
 		out.append(" <a href=\"javascript:hideshow(document.getElementById('st" + v + "'))\">Hide/Show</a>");
 		out.append("<br>"); 
 		out.append(printStackTrace(en)); 

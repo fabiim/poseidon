@@ -1,4 +1,4 @@
-package datastore.workloads.logger;
+package bonafide.datastore.workloads;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -11,9 +11,6 @@ import java.util.Queue;
 
 import org.python.google.common.collect.Lists;
 
-import bonafide.datastore.workloads.ActivityEvent;
-import bonafide.datastore.workloads.RequestLogEntry;
-
 public class RequestLogger {
 	public static final String SERIALIZED = ".objects";
 	public static final String TXT = ".string";
@@ -21,14 +18,13 @@ public class RequestLogger {
 	
 	public synchronized static void startRequestLogger(String path){
 		if (instance == null){
-			
 			instance = new RequestLogger(path);
 			
 			// Activate server to receive events from mininet 			
 			new Thread( new WebService(instance)).start();
 			
 			System.out.println("Starting request logger"); 
-			if (path != null){
+
 				System.out.println("Adding shutdown hook");
 				//Add shutdown hook to save file 
 			Runtime.getRuntime().addShutdownHook( 
@@ -46,7 +42,7 @@ public class RequestLogger {
 		    			}
 		    		)
 		    	);
-		}}
+		}
 	}
 	
 	
@@ -68,8 +64,9 @@ public class RequestLogger {
 	
 	private int last = 0; 
 	public synchronized void addRequest(RequestLogEntry r){
+		System.out.println("adding request");
 		if (r.getType() == null){
-			try{ throw new Exception(); }catch(Exception e){e.printStackTrace(System.err);} 
+			try{ throw new Exception(); }catch(Exception e){e.printStackTrace(System.out);} 
 			System.exit(-1); 
 		}
 		operations.add(r);
@@ -111,8 +108,10 @@ public class RequestLogger {
 				f.delete(); 
 			}
 			ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(s,true));
+			
 			out.writeObject(operations);
 			out.writeObject(events);
+			System.out.println("Saved :" + operations.size() + " requests And : "+ events.size() +"events."); 
 			out.flush(); 
 			out.close(); 
 		} catch (FileNotFoundException e) {

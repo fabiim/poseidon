@@ -1,4 +1,4 @@
-package datastore.workloads.logger;
+package bonafide.datastore.workloads;
 
 
 
@@ -8,8 +8,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-
-import bonafide.datastore.workloads.ActivityEvent;
 
 public class WebService implements Runnable{
 		ActivityEvent initNetwork, turnOffLinks, turnOffSwitches,addremoveTest; 

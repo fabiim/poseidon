@@ -1,7 +1,7 @@
 /**
  * 
  */
-package bonafide.datastore.tables;
+package bonafide.datastore.workloads;
 
 import java.util.Collection;
 import java.util.Map;
@@ -11,8 +11,15 @@ import java.util.Set;
 import mapserver.RequestType;
 import bonafide.datastore.AbstractDatastoreProxy;
 import bonafide.datastore.ColumnProxy;
-import bonafide.datastore.workloads.RequestLogEntry;
-import bonafide.datastore.workloads.RequestLogWithDataInformation;
+import bonafide.datastore.KeyValueProxy;
+import bonafide.datastore.tables.AnnotatedColumnObject;
+import bonafide.datastore.tables.ColumnObject;
+import bonafide.datastore.tables.ColumnTable;
+import bonafide.datastore.tables.ColumnTable_;
+import bonafide.datastore.tables.KeyValueTable;
+import bonafide.datastore.tables.KeyValueTable_;
+import bonafide.datastore.util.Serializer;
+import bonafide.datastore.util.UnsafeJavaSerializer;
 
 //TODO - It would be nice to have an implementation of this that did not require using the smart middleware, only the server implementation locally. It would be faster to perform Workload analysis. 
 
@@ -43,27 +50,26 @@ import bonafide.datastore.workloads.RequestLogWithDataInformation;
 * 
 */
 
+/*class WorkloadLoggerDataStoreProxy {
 
-class WorkloadLoggerDataStoreProxy extends ColumnProxy{
-	
 	private RequestLogEntry logEntry;
-	
-	/**
+		
+	*//**
 	 * Create 
-	 */
+	 *//*
 	public WorkloadLoggerDataStoreProxy(RequestLogEntry logEntry){
 		super(0); //FIXME 
 		this.logEntry = logEntry; 
 	}
-	
-	/**
+		
+	*//**
 	 * Records requests characteristics in a {@link RequestLogEntry}.
 	 * <p>
 	 * Characteristics recorded are: timeStarted/timeEnded (ns); sizeOfRequest/sizeofResponse (bytes) and type (RequestType).   
 	 *  
 	 * @see bonafide.datastore.AbstractDatastoreProxy#invokeRequest(mapserver.RequestType, byte[])
 	 * @see WorkloadLoggerDataStoreProxy
-	 */
+	 *//*
 	@Override
 	protected byte[] invokeRequest(RequestType type, byte[] request) {
 		logEntry.setTimeStarted(System.nanoTime());
@@ -74,39 +80,81 @@ class WorkloadLoggerDataStoreProxy extends ColumnProxy{
 		return result; 
 	}
 	
-	/**
+	*//**
 	 * Returns the RequestLogEntry used to capture the request characteristics.
 	 * @return the RequestLogEntry used.   
-	 */
+	 *//*
 	public RequestLogEntry getLogEntry(){
 		return logEntry; 
 	}
+	
 }
-
+*/
 
 
 /**
  * @author fabiim
- *
+ * 
  */
+/*
+ * In a nutshell. Each request to the datastore will be logged. 
+ * The RequestLogEntry entry is always the same reference. The underlying WorkloadLoggerDataStoreProxy will change it everytime
+ * a request is made to the datastore. (this is actually not thread safe, so we synchronize every request to this facade Table). 
+ * This is not meant to be used when performance is the issue. 
+ */
+
 public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
+
 	
 	KeyValueTable<K,V> table;
 	RequestLogEntry entry; 
-	String tableName; 
+	String tableName;
+	RequestLogger logger; 
+	
+	/**
+	 * Construct a TableLogger with default (unsafe) serializers for keys and values.
+	 */
+	public WorkloadLoggerTable(String tableName, RequestLogger logger){
+		this(tableName, logger, UnsafeJavaSerializer.<K>getInstance(), UnsafeJavaSerializer.<V>getInstance()); 
+	}
+	
+	protected WorkloadLoggerTable(){
+		
+	}
+	
+	public WorkloadLoggerTable(String tableName, RequestLogger logger, Serializer<K> keys, Serializer<V> values){
+		this.entry = new RequestLogEntry(); 
+		this.logger = logger;
+		this.tableName = tableName; 
+		this.table = KeyValueTable_.getTable( new KeyValueProxy(0){
+			@Override
+			protected byte[] invokeRequest(RequestType type, byte[] request) {
+				entry.setTimeStarted(System.currentTimeMillis());
+				entry.setSizeOfRequest(request.length);
+				entry.setType(type);
+				byte[] result =  super.invokeRequest(type, request);
+				entry.setTimeEnded(System.currentTimeMillis());
+
+				return result; 
+			}; 
+		}
+		, tableName, keys,values);
+	}
+	
 	@Override
 	public synchronized boolean remove(K key, V value) {
 		boolean val = table.remove(key, value);
-		logEntry(new RequestLogWithDataInformation.Builder().setTable(tableName).setKey(key.toString()).setValue(value.toString()).build(entry));
+		logEntry(new RequestLogWithDataInformation.Builder().setTable(tableName).
+				setKey(key != null? key.toString() : "null" ).setValue(value != null ? value.toString() : "null").build(entry));
 		return val; 
 	}
 	
 	/**
 	 * @param build
 	 */
-	private void logEntry(RequestLogWithDataInformation build) {
-		// TODO Auto-generated method stub
-		
+	protected void logEntry(RequestLogWithDataInformation req) {
+		req.setStrackTrace();
+		logger.addRequest(req);
 	}
 
 	@Override
@@ -114,9 +162,9 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		V val = table.putIfAbsent(key, value);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(key.toString()).
-				setValue(value.toString()).
-				setReturnedValue(val.toString()).
+				setKey(key != null? key.toString() : "null" ).
+				setValue(value != null ? value.toString() : "null").
+				setReturnedValue(val != null ? val.toString() : "null" ).
 				build(entry));
 		return val; 
 	}
@@ -125,15 +173,15 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		table.clear();
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				build()); 
+				build(entry)); 
 	}
 	@Override
 	public synchronized boolean containsKey(K key) {
 		Boolean val = table.containsKey(key);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(key.toString()).
-				setReturnedValue(val.toString()).
+				setKey(key != null? key.toString() : "null" ).
+				setReturnedValue(val != null ? val.toString() : "null" ).
 				build(entry));
 		return val; 
 
@@ -143,8 +191,8 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		V val = table.remove(key);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(key.toString()).
-				setReturnedValue(val.toString()).
+				setKey(key != null? key.toString() : "null" ).
+				setReturnedValue(val != null ? val.toString() : "null" ).
 				build(entry));
 		return val; 
 	}
@@ -153,8 +201,8 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		Boolean val = table.containsValue(value);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setValue(value.toString()).
-				setReturnedValue(val.toString()).
+				setValue(value != null ? value.toString() : "null").
+				setReturnedValue(val != null ? val.toString() : "null" ).
 				build(entry));
 		return val; 
 	}
@@ -164,19 +212,20 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
 				setReturnedValue(entries.toString()).
-				build());
+				build(entry));
 		return entries; 
 	}
 	
 	@Override
 	public synchronized V put(K key, V value) {
+
 		V val =  table.put(key, value);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(key.toString()).
-				setValue(value.toString()).
-				setReturnedValue(val.toString()).
-				build()); 
+				setKey(key != null? key.toString() : "null" ).
+				setValue(value != null ? value.toString() : "null").
+				setReturnedValue(val != null ? val.toString() : "null" ).
+				build(entry)); 
 		return val; 
 	}
 	
@@ -185,7 +234,7 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		Boolean val = table.isEmpty();
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				build());
+				build(entry));
 		return val; 
 	}
 	@Override
@@ -194,7 +243,7 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
 				setReturnedValue(keys.toString()).
-				build());
+				build(entry));
 		return keys; 
 	}
 	@Override
@@ -202,9 +251,9 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		V val = table.get(key);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(key.toString()).
-				setReturnedValue(val.toString()).
-				build());
+				setKey(key != null? key.toString() : "null" ).
+				setReturnedValue(val != null ? val.toString() : "null" ).
+				build(entry));
 		return val; 
 	}
 	
@@ -213,8 +262,8 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		table.putAll(m);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(m.toString()).
-				build());
+				setKey(m != null? m.toString() : "null" ).
+				build(entry));
 	}
 	
 	@Override
@@ -222,10 +271,10 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		Boolean b = table.insert(key, value);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(key.toString()).
-				setValue(value.toString()).
-				setReturnedValue(b.toString()).
-				build());
+				setKey(key != null? key.toString() : "null" ).
+				setValue(value != null ? value.toString() : "null").
+				setReturnedValue(b != null? b.toString(): "null").
+				build(entry));
 		return b; 
 	}
 	
@@ -234,8 +283,8 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		Integer val = table.size();
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setReturnedValue(val.toString()).
-				build());
+				setReturnedValue(val != null ? val.toString() : "null" ).
+				build(entry));
 		return val; 
 	}
 	
@@ -244,41 +293,20 @@ public class WorkloadLoggerTable<K,V>  implements KeyValueTable<K,V>{
 		Collection<V> values  =  table.values();
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setReturnedValue(values.toString()).
-				build());
+				setReturnedValue(values != null ? values.toString(): "null").
+				build(entry));
 		return values; 
 	}
 	
 	@Override
 	public synchronized int getAndIncrement(String key) {
-		
 		Integer val = table.getAndIncrement(key);
 		logEntry(new RequestLogWithDataInformation.Builder().
 				setTable(tableName).
-				setKey(key.toString()).
-				setReturnedValue(val.toString()).build());
+				setKey(key != null? key.toString() : "null" ).
+				setReturnedValue(val != null ? val.toString() : "null" ).build(entry));
 		return val; 
 	}
 }
 
-class ColumnWorkloadLogger< K,V> extends WorkloadLoggerTable<K,V> implements ColumnTable<K,V>{
 
-	/* (non-Javadoc)
-	 * @see bonafide.datastore.tables.ColumnTable#getColumn(java.lang.Object, java.lang.String)
-	 */
-	@Override
-	public <C> C getColumn(K key, String columnName) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	/* (non-Javadoc)
-	 * @see bonafide.datastore.tables.ColumnTable#setColumn(java.lang.Object, java.lang.String, java.lang.Object)
-	 */
-	@Override
-	public boolean setColumn(K key, String columnName, Object type) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-	
-}

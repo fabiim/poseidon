@@ -28,7 +28,6 @@ import com.google.common.primitives.Shorts;
 
 
 public abstract class AbstractDatastoreProxy  implements TableDataStoreProxy{
-	
 	private static Set<Integer> cids = Sets.newHashSet();
 	private ServiceProxy  server; 
 	private static int cid =1;
@@ -263,8 +262,8 @@ public abstract class AbstractDatastoreProxy  implements TableDataStoreProxy{
 			throw new RuntimeException("Could not serialize string"); 
 			
 		}
-		
 	}
+	
 	
 	protected  byte[] getBytes(Integer i){
 		return ByteBuffer.allocate(4).putInt(i).array();

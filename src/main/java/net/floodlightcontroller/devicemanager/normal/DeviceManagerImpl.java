@@ -139,13 +139,13 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
      * This stores secondary indices over the fields in the devices
      */
     protected Map<EnumSet<DeviceField>, DeviceIndex> secondaryIndexMap;
-
+    
     /**
      * This map contains state for each of the {@ref IEntityClass}
      * that exist
      */
     protected ConcurrentHashMap<String, ClassState> classStateMap;
-
+    
     /**
      * This is the list of indices we want on a per-class basis
      */
@@ -1153,10 +1153,11 @@ IFlowReconcileListener, IInfoProvider, IHAListener {
                     logger.debug("New device created: {} deviceKey={}, entity={}",
                                  new Object[]{device, deviceKey, entity});
                 }
-
+                
+                
                 // Add the new device to the primary map with a simple put
                 deviceMap.put(deviceKey, device);
-
+                
                 // update indices
                 if (!updateIndices(device, deviceKey)) {
                     if (deleteQueue == null)

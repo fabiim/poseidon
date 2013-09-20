@@ -1,5 +1,7 @@
 package bonafide.datastore.workloads;
 
+import bonafide.datastore.workloads.RequestLogWithDataInformation.Builder;
+
 public class  RequestLogWithDataInformation extends RequestLogEntry{
 	/**
 	 * 
@@ -9,7 +11,8 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 		private String key ="-"; 
 		private String value ="-"; 
 		private String existentValue ="-";
-		private String returnedValue = "-"; 
+		private String returnedValue = "-";
+		private String column = "-"; 
 		
 
 		
@@ -34,6 +37,13 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 			this.returnedValue = returnedValue;
 			return this; 
 		}
+		public Builder setColumn(String columnName) {
+			this.column = columnName; 
+			return this; 
+		}
+		public String getColumn() {
+			return column;
+		}
 		public String getTable() {
 			return table;
 		}
@@ -56,6 +66,10 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 		public RequestLogWithDataInformation build(RequestLogEntry request){
 			return new RequestLogWithDataInformation(this, request); 
 		}
+		/**
+		 * @param columnName
+		 * @return
+		 */
 		
 	}
 	
@@ -64,6 +78,8 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 	private String key; 
 	private String value; 
 	private String existentValue; 
+	private String returnValue; 
+	private String column; 
 	
 	///XXX - mete nojo isto. 
 	public RequestLogWithDataInformation(Builder b){
@@ -77,6 +93,8 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 		this.key = b.getKey(); 
 		this.value =b.getValue(); 
 		this.existentValue = b.getExistentValue();
+		this.returnValue = b.getReturnedValue(); 
+		this.column =b.getColumn(); 
 	}
 	
 	public RequestLogWithDataInformation(String tableName){
@@ -145,9 +163,12 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 	public int hashCode() {
 		final int prime = 31;
 		int result = super.hashCode();
+		result = prime * result + ((column == null) ? 0 : column.hashCode());
 		result = prime * result
 				+ ((existentValue == null) ? 0 : existentValue.hashCode());
 		result = prime * result + ((key == null) ? 0 : key.hashCode());
+		result = prime * result
+				+ ((returnValue == null) ? 0 : returnValue.hashCode());
 		result = prime * result + ((table == null) ? 0 : table.hashCode());
 		result = prime * result + ((value == null) ? 0 : value.hashCode());
 		return result;
@@ -161,6 +182,11 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 		if (getClass() != obj.getClass())
 			return false;
 		RequestLogWithDataInformation other = (RequestLogWithDataInformation) obj;
+		if (column == null) {
+			if (other.column != null)
+				return false;
+		} else if (!column.equals(other.column))
+			return false;
 		if (existentValue == null) {
 			if (other.existentValue != null)
 				return false;
@@ -170,6 +196,11 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 			if (other.key != null)
 				return false;
 		} else if (!key.equals(other.key))
+			return false;
+		if (returnValue == null) {
+			if (other.returnValue != null)
+				return false;
+		} else if (!returnValue.equals(other.returnValue))
 			return false;
 		if (table == null) {
 			if (other.table != null)
@@ -183,17 +214,13 @@ public class  RequestLogWithDataInformation extends RequestLogEntry{
 			return false;
 		return true;
 	}
-	public void initializeFields(){
-		StackTraceElement stt[] = Thread.currentThread().getStackTrace();
-		tid = Thread.currentThread().getId(); 
-		for (int i = 4 ; i < 14  && i < stt.length; i++){
-			st[i] = stt[i].toString(); 
-		}
-	}
+	
+	
 	@Override
 	public String toString() {
-		return super.toString() + " RequestLogWithDataInformation [table=" + table + ", key=" + key
-				+ ", value=" + value + ", existentValue=" + existentValue + "]";
+		return  super.toString() + " - RequestLogWithDataInformation [table=" + table + ", key=" + key
+				+ ", value=" + value + ", existentValue=" + existentValue
+				+ ", returnValue=" + returnValue + ", column=" + column + "]";
 	}
 	
 }

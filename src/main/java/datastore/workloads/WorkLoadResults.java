@@ -16,6 +16,7 @@ import mapserver.RequestType.SuperType;
 import bonafide.datastore.workloads.ActivityEvent;
 import bonafide.datastore.workloads.EVENT_TYPE;
 import bonafide.datastore.workloads.RequestLogEntry;
+import bonafide.datastore.workloads.RequestLogWithDataInformation;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -174,7 +175,8 @@ public class WorkLoadResults {
 	public long getTimeZero(){
 		List<RequestLogEntry> l=Lists.newArrayList(requestLog);
 		Collections.sort(l, RequestLogEntry.timeStartedComparisonASC);
-		return l.get(0).getTimeStarted(); 
+		//XXx check if 0 exists. 
+		return l.get(0).getTimeStarted();
 	}
 	
 	/////////////PRIVATE///////////////////////
@@ -193,6 +195,7 @@ public class WorkLoadResults {
 				} catch (ClassNotFoundException e){
 					System.err.println(path + "Contains strange data");
 				}
+				
 				List<RequestLogEntry> requestLogFinal = Lists.newArrayList();
 				
 				/*int i=0;
@@ -208,7 +211,7 @@ public class WorkLoadResults {
 				System.out.println("link removals: " + i); 
 				System.out.println("link additions: " + j);*/ 
 				long timeZero = getTimeZero();
-				int i = 0; 
+				
 /*				List<List<RequestLogEntry>> enPeSec =  this.getRequestsPerIntervalWithEmptyIntervals(1000, SuperType.READ); 
 				long max = 0; 
 				int index = 0;
@@ -251,22 +254,29 @@ public class WorkLoadResults {
 					requestLogFinal.add(en);
 				}
 			}*/
-				
+			System.out.println();
+			System.out.println(requestLog.size()); 
+			int cenas=0; 
 			motherfucker: 
 			for (RequestLogEntry en : requestLog){
 				if ((en.getTimeStarted() - timeZero) > (ReportGenerator.BEGIN * 1000)
 					&& (en.getTimeStarted() - timeZero) <= (ReportGenerator.END * 1000)
 						){
-					if (en.getTable().equals("DUMMY"))
-						continue; 
-					for (String  e : en.st){
-						if (e != null && e.matches(".*toString.*"))
-							continue motherfucker; 
+					
+					if (en instanceof RequestLogWithDataInformation){
+						//TODO- i don't think there is a dummy table. 
+						if (((RequestLogWithDataInformation) en).getTable().equals("DUMMY"))
+							continue; 
 					}
+					/*for (String  e : en.st){
+						if (e != null && e.matches(".*toString.*"))
+							continue motherfucker; /// Ignore requests made to the data store triggered inside toString()   
+					}*/
+					cenas++; 
 					requestLogFinal.add(en);
 				}
 			}
-				
+			System.out.println(cenas); 
 			List<ActivityEvent> ev = Lists.newArrayList();
 			for (ActivityEvent e : this.activityLog){
 				if (e.getStart() >= requestLogFinal.get(0).serial){

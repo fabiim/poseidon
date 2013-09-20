@@ -23,6 +23,7 @@ import org.python.google.common.collect.Lists;
 
 import bonafide.datastore.workloads.ActivityEvent;
 import bonafide.datastore.workloads.RequestLogEntry;
+import bonafide.datastore.workloads.RequestLogger;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
@@ -31,8 +32,6 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
-
-import datastore.workloads.logger.RequestLogger;
 
 class Ch{
 	Session session;
@@ -123,7 +122,7 @@ public class AutomaticTests implements Serializable{
 		
 		for (String input : test.mininetScriptInput){
 			//Thread t = startFloodlight();
-			RequestLogger logger =datastore.workloads.logger.RequestLogger.getRequestLogger(); 
+			RequestLogger logger =bonafide.datastore.workloads.RequestLogger.getRequestLogger(); 
 			wwaitForFloodlight();			
 			mininetChannel.start( " sudo python "  + test.mininetScriptPath + " " +  input);
 			//System.out.println("WAITING FOR USER INPUT TO COLLECT DATA (also gives ti"); 

@@ -24,15 +24,15 @@ import java.util.Iterator;
 import java.util.Map;
 
 import net.floodlightcontroller.devicemanager.IDeviceService.DeviceField;
-import bonafide.datastore.ColumnProxy;
 import bonafide.datastore.tables.AnnotatedColumnObject;
-import bonafide.datastore.tables.ColumnTable_;
-import bonafide.datastore.util.JavaSerializer;
+import bonafide.datastore.tables.ColumnTable;
+import bonafide.datastore.workloads.ColumnWorkloadLogger;
+import bonafide.datastore.workloads.RequestLogger;
+import bonafide.datastore.workloads.WorkloadLoggerTable;
 
 import com.google.common.collect.Maps;
 
 import datastore.Datastore;
-import datastore.Table;
 
 /**
  * An index that maps key fields of an entity uniquely to a device key
@@ -48,7 +48,7 @@ public class DeviceUniqueIndex {
      * The index
      */
     //private ConcurrentHashMap<IndexedEntity, Long> index;
-    private ColumnTable_<IndexedEntity, Device> index; 
+    private ColumnTable<IndexedEntity, Device> index; 
     
     /**
      * Construct a new device index using the provided key fields
@@ -56,11 +56,15 @@ public class DeviceUniqueIndex {
      */
     public DeviceUniqueIndex(EnumSet<DeviceField> keyFields, Datastore ds) {
         this.keyFields = keyFields; 
-        index = ColumnTable_.getTable(
+        index = new ColumnWorkloadLogger<IndexedEntity,Device>(
+        		 "DEVICE_UNIQUE_INDEX" + getControllerID(), RequestLogger.getRequestLogger(),  
+        		IndexedEntity.SERIALIZER, 
+        		AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
+        /*index = ColumnTable_.getTable(
         		new ColumnProxy((int) Thread.currentThread().getId())
         		, "DEVICE_UNIQUE_INDEX" + getControllerID(),  
         		IndexedEntity.SERIALIZER, 
-        		AnnotatedColumnObject.newAnnotatedColumnObject(Device.class)); 
+        		AnnotatedColumnObject.newAnnotatedColumnObject(Device.class));*/ 
     }
     
     

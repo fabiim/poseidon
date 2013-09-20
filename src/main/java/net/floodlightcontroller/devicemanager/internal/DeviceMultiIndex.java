@@ -27,16 +27,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import net.floodlightcontroller.devicemanager.IDeviceService.DeviceField;
 import net.floodlightcontroller.util.IterableIterator;
-import bonafide.datastore.ColumnProxy;
-import bonafide.datastore.KeyValueProxy;
-import bonafide.datastore.tables.AnnotatedColumnObject;
-import bonafide.datastore.tables.KeyValueTable_;
+import bonafide.datastore.tables.KeyValueTable;
 import bonafide.datastore.util.JavaSerializer;
+import bonafide.datastore.workloads.RequestLogger;
+import bonafide.datastore.workloads.WorkloadLoggerTable;
 
 import com.google.common.collect.Sets;
 
 import datastore.Datastore;
-import datastore.Table;
 
 /**
  * An index that maps key fields of an entity to device keys, with multiple
@@ -50,7 +48,7 @@ public class DeviceMultiIndex extends DeviceIndex {
 	/**
      * The index
      */
-    private KeyValueTable_<IndexedEntity, HashSet<Long>> index;
+    private KeyValueTable<IndexedEntity, HashSet<Long>> index;
 
     /**
      * @param keyFields
@@ -58,11 +56,16 @@ public class DeviceMultiIndex extends DeviceIndex {
     
     public DeviceMultiIndex(EnumSet<DeviceField> keyFields, Datastore ds) {
         super(keyFields);
-        index = KeyValueTable_.getTable(
-        		new KeyValueProxy((int) Thread.currentThread().getId())
-        		, "DEVICE_MULTI_INDEX_" + getControllerID(),  
-        		IndexedEntity.SERIALIZER, 
-        		JavaSerializer.<HashSet<Long>>getJavaSerializer()); 
+        index = new WorkloadLoggerTable<IndexedEntity, HashSet<Long>>(
+        	"DEVICE_MULTI_INDEX_" + getControllerID(),  RequestLogger.getRequestLogger(), 
+        	IndexedEntity.SERIALIZER, 
+        	JavaSerializer.<HashSet<Long>>getJavaSerializer());
+        
+        /*index = KeyValueTable_.getTable(
+		new KeyValueProxy((int) Thread.currentThread().getId())
+		, "DEVICE_MULTI_INDEX_" + getControllerID(),  
+		IndexedEntity.SERIALIZER, 
+		JavaSerializer.<HashSet<Long>>getJavaSerializer());*/ 
     }
 
     // ***********
